@@ -169,9 +169,53 @@ Each phase is one PR on the fork (phase 1 may be 2–3 stacked PRs: ports+model,
 | Contract tests against fake CLIs | Fixtures to record and keep current | It's the only way to test both adapters without hitting real hosts on every `npm test` |
 | Upstream PRs | They may say no, especially to phase 1 (it moves their code) | Fine. Phases 2 and 3 are the likeliest to be wanted |
 
-## Open decisions
+## Zero-config by default
 
-1. Project config lives in `<project>/.agent-office/project.json` (travels with the checkout) — or office-wide `floors.json`?
-2. Allowed roots for **📂 Open folder**: default `~/code`, editable in ⚙️ by admins?
-3. A GitLab floor with tracker *none*: hide the issue board, or show it empty with **Connect ClickUp**?
-4. Upstream sync cadence: weekly merge of `upstream/main` into fork `main`, as its own PR?
+The project config is **detected, not filled in**. Opening a folder asks nothing; the settings sheet exists only to override a wrong guess.
+
+| Field | Detected from | Brain gets |
+|---|---|---|
+| Push remote | `origin`, else the only remote | `origin` |
+| Code host | the push remote's URL: `github.com` → GitHub, the ⚙️ GitLab hostname (`gitlab.g137.io`) → GitLab, else none | GitLab |
+| Project path | the same URL | `developers/brain` |
+| Base branch | `refs/remotes/<remote>/HEAD` (the host's default branch) | `dev` |
+| Issue tracker | nothing to detect: none until **Connect ClickUp** | none |
+
+`project.json` stores **only the fields someone overrode**; everything else is re-detected on open, so a changed remote is picked up by itself.
+
+## Decisions
+
+| # | Decision |
+|---|---|
+| 1 | Overrides live in `<project>/.agent-office/project.json` (travels with the checkout) |
+| 2 | **📂 Open folder**: admins only, inside allowed roots (default `~/code`, editable in ⚙️). Paths are on the **office's machine**, not the viewer's |
+| 3 | Floor with tracker *none*: issue board stays, empty, with **Connect ClickUp** |
+| 4 | Upstream sync only when Bachir asks |
+
+## Multiplayer, and where workers run
+
+The office is **one server process on one machine**. Everyone else is a browser.
+
+```mermaid
+flowchart LR
+  subgraph Host["The office machine (Bachir's Mac today, a server later)"]
+    Office["agent-office server"]
+    Folders["Project folders<br/>~/code/g137/brain …"]
+    Workers["Workers: pi / claude / codex<br/>processes in worktrees under the project"]
+    Office --> Workers --> Folders
+  end
+  You["Bachir's browser"] -->|localhost| Office
+  Mate1["Teammate's browser"] -->|tailnet / internal HTTPS| Office
+  Mate1 -.->|"agent-office tunnel:<br/>a worker's dev server on their localhost"| Office
+```
+
+| Question | Answer |
+|---|---|
+| Where do workers run? | On the office machine, as its OS user, in that machine's folders. A teammate hiring a worker runs code **on your Mac** if the office is on your Mac |
+| What does a teammate see? | The same 3D office, live terminals, boards, voice, screen share. They type into the same terminals |
+| Whose credentials? | With accounts (`agent-office accounts invite`), each person's own Claude/GitHub sign-in, so commits are under their name. Phase 5 adds GitLab. Without accounts, everyone runs on the machine's own logins |
+| Is it isolated per person? | **No.** Every worker is the same OS user: anyone signed in can run any command as that user and read any project folder. Invite only people you'd give SSH to |
+| **📂 Open folder** in multiplayer | Opens a folder on the office machine. Fine on a server where projects live in its `~/code`; on your Mac it means teammates' workers work in your folders. That's why it's admin-only and root-limited |
+| How do teammates reach it? | Upstream supports a domain + Caddy, or Tailscale Serve (`--tailscale`). **Unverified on G137's Headscale**: Tailscale Serve's HTTPS certificates come from Tailscale's control plane, which Headscale may not provide. Voice and screen share need HTTPS. Likely route: the existing internal ingress (`*.tail.g137.internal`) in front of `--host` on the tailnet IP |
+
+Recommendation: **solo on the Mac now**; if the team joins, run the office on a G137 VM/spark box with the projects cloned there, behind the internal ingress, with per-person accounts.
