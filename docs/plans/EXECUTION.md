@@ -33,7 +33,7 @@ You are executing `docs/plans/fork-architecture.md` (the WHY and the design). Th
 
 Tick here (in the PR that does it) so the next session knows where to start.
 
-- [ ] **P0** fork house rules
+- [x] **P0** fork house rules
 - [ ] **P1a** model + ports + cli runner + architecture tests
 - [ ] **P1b** GitHub adapter (move `github.ts`), consumers on ports
 - [ ] **P1c** protocol + client rename (`gh.*` → `cr.*` / `issues.*`, `ui/github/` → `ui/boards/`), issue ids → string
