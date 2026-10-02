@@ -121,6 +121,35 @@ export function paintScreen(ctx: CanvasRenderingContext2D, w: number, h: number,
   }
 }
 
+const seenBox = new THREE.Box3();
+const seenAt = new THREE.Vector3();
+const seenNormal = new THREE.Vector3();
+
+/** What the camera sees this frame, so laptops out of sight don't repaint their screens. */
+export class ScreenView {
+  private frustum = new THREE.Frustum();
+  private matrix = new THREE.Matrix4();
+  private camAt = new THREE.Vector3();
+
+  /** Call once a frame, before the laptops update. */
+  set(camera: THREE.Camera) {
+    camera.updateMatrixWorld();
+    this.matrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    this.frustum.setFromProjectionMatrix(this.matrix);
+    camera.getWorldPosition(this.camAt);
+  }
+
+  sees(screen: THREE.Mesh): boolean {
+    if (!screen.visible) return false;
+    seenBox.setFromObject(screen);
+    if (!this.frustum.intersectsBox(seenBox)) return false;
+    // Its face points along the mesh's +z; behind it, you only see the back of the lid.
+    screen.getWorldPosition(seenAt);
+    seenNormal.set(0, 0, 1).transformDirection(screen.matrixWorld);
+    return seenNormal.dot(seenAt.subVectors(this.camAt, seenAt)) > 0;
+  }
+}
+
 export class Laptop {
   readonly root = new THREE.Group();
   private canvas = document.createElement('canvas');
@@ -131,6 +160,8 @@ export class Laptop {
   private paintedAt = 0;
   private openT = 0;
   private placeholder = 'booting…';
+  /** The screen itself, to tell whether the camera can see it before repainting. */
+  private screen!: THREE.Mesh;
   /** Anything else of its own to free (the tome's page). */
   private owned: THREE.Material[] = [];
 
@@ -150,6 +181,7 @@ export class Laptop {
     const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.46), new THREE.MeshBasicMaterial({ map: this.texture, toneMapped: false }));
     screen.position.set(0, 0.25, 0.014);
     this.lid.add(screen);
+    this.screen = screen;
     if (style === 'tome') {
       const leather = toon('#5a2a17');
       const gold = toon('#d9ab2e');
@@ -201,9 +233,11 @@ export class Laptop {
     this.drawnVersion = -2;
   }
 
-  /** `distance` to the camera throttles repaints: far-away laptops refresh rarely. */
-  update(dt: number, screen: ScreenState | undefined, distance = 0) {
+  /** `distance` to the camera throttles repaints: far-away laptops refresh rarely. `view` skips them while
+   *  the screen is out of sight (off camera or turned away); the missed version is painted once it's back. */
+  update(dt: number, screen: ScreenState | undefined, distance = 0, view?: ScreenView) {
     if (this.openT < 1) this.setLid(Math.min(1, this.openT + dt * 1.6));
+    if (view && this.drawnVersion >= 0 && !view.sees(this.screen)) return;
     const version = screen ? screen.version : -1;
     const now = performance.now();
     const every = distance < 6 ? 150 : distance < 14 ? 600 : 2000;
