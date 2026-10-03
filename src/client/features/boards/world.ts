@@ -301,6 +301,11 @@ export class QueueBoardTexture {
     const running = state.tasks.filter((t) => t.status === 'running');
     const queued = state.tasks.filter((t) => t.status === 'queued');
     const done = state.tasks.filter((t) => t.status === 'done').slice(-3).reverse();
+    const OUTCOME_SIDE: Record<string, string> = { done: 'done', failed: "didn't start", killed: 'sent home' };
+    const prSide = (pr: { number: number; state: string }) => {
+      const merged = pr.state === 'merged' ? ' · merged' : '';
+      return `${store.host.words.crShort} ${store.host.words.refPrefix}${pr.number}${merged}`;
+    };
     const rows = [
       ...running.map((t) => {
         const w = t.workerId ? workers.get(t.workerId) : undefined;
@@ -311,7 +316,7 @@ export class QueueBoardTexture {
       ...done.map((t) => ({
         icon: t.outcome === 'done' ? '✅' : '⚠️',
         text: name(t),
-        side: t.pr ? `${store.host.words.crShort} ${store.host.words.refPrefix}${t.pr.number}${t.pr.state === 'merged' ? ' · merged' : ''}` : t.outcome === 'done' ? 'done' : t.outcome === 'failed' ? "didn't start" : t.outcome === 'killed' ? 'sent home' : 'stopped',
+        side: t.pr ? prSide(t.pr) : (OUTCOME_SIDE[t.outcome ?? ''] ?? 'stopped'),
         color: '#8a8f98',
       })),
     ];
