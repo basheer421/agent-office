@@ -21,7 +21,7 @@ export function checksOf(rollup: any[]): ChecksSummary {
   for (const c of rollup) {
     const concl = String(c.conclusion ?? c.state ?? '').toUpperCase();
     const status = String(c.status ?? '').toUpperCase();
-    if (['FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED'].includes(concl)) return 'fail';
+    if (FAILED.includes(concl)) return 'fail';
     if (status && status !== 'COMPLETED') pending = true;
     if (concl === 'PENDING' || concl === 'EXPECTED') pending = true;
   }

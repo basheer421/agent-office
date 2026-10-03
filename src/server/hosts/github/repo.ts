@@ -85,6 +85,6 @@ export class GitHubRepo {
         if (!/label does not exist/i.test((err as Error).message)) throw err;
       }
     }
-    return now ?? labels(json(await this.gh(['api', `${path}?per_page=100`, '--jq', jq])));
+    return now ?? labels(json(await this.gh(['api', `${path}?per_page=100`, '--jq', jq], { as })));
   }
 }

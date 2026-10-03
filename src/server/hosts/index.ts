@@ -33,6 +33,9 @@ export function hostKindOf(dir: string): 'github' | 'none' {
   return 'github';
 }
 
+/** What a GitLab floor's boards say until P3 wires GitLabHost in. */
+export const GITLAB_NOT_YET = "GitLab projects don't have boards in the office yet (coming with GitLab support, issue #14)";
+
 export function hostFor(dir: string, kind = hostKindOf(dir)): CodeHost {
-  return kind === 'github' ? new GitHubHost(githubRepo(dir)) : new NoHost();
+  return kind === 'github' ? new GitHubHost(githubRepo(dir)) : new NoHost(GITLAB_NOT_YET);
 }

@@ -122,8 +122,14 @@ export class Boards {
   async setLabels(kind: Kind, n: number, add: string[], remove: string[], as?: Actor): Promise<{ labels?: GhLabel[]; error?: string }> {
     let now: GhLabel[];
     try {
-      const got = kind === 'pull' ? await this.host.labels?.set(n, add, remove, as) : await this.tracker.labels?.set(String(n), add, remove, as);
-      if (!got) return { error: kind === 'pull' ? "This project's code host doesn't take labels from the office" : "This project's issue tracker doesn't take labels from the office" };
+      if (!(kind === 'pull' ? this.host.labels : this.tracker.labels)) return { error: kind === 'pull' ? "This project's code host doesn't take labels from the office" : "This project's issue tracker doesn't take labels from the office" };
+      const got = kind === 'pull' ? await this.host.labels!.set(n, add, remove, as) : await this.tracker.labels!.set(String(n), add, remove, as);
+      if (!got) {
+        // The host changed them but didn't say what they are now: look again (after the change) and read them off the list.
+        await (kind === 'issue' ? this.refreshIssues().then(() => this.refreshIssues()) : this.refreshPulls(true));
+        const items: (GhIssue | GhPull)[] = kind === 'issue' ? this.issues.items : this.pulls.items;
+        return { labels: items.find((i) => i.number === n)?.labels ?? [] };
+      }
       now = got;
     } catch (err) {
       // Some may have changed before it failed.
@@ -210,8 +216,9 @@ export class Boards {
     this.onIssues(this.issues);
   }
 
-  private async refreshPulls() {
-    if (this.pulls.loading) return;
+  /** `force` looks again even with a look under way (that one may have been asked before a change). */
+  private async refreshPulls(force = false) {
+    if (this.pulls.loading && !force) return;
     this.pulls = { ...this.pulls, loading: true };
     this.onPulls(this.pulls);
     const asked = Date.now();
