@@ -18,6 +18,7 @@ interface PiSetup {
 export const pi: ProviderAdapter<StatusState, PiSetup> = {
   id: 'pi',
   createState: () => ({}),
+  chat: true,
   prepare: ({ dataDir }) => ({ extension: writePiExtension(dataDir), dataDir }),
   launch({ h, args, prompt, resumeSessionId, setup }) {
     const { info } = h;
@@ -25,7 +26,7 @@ export const pi: ProviderAdapter<StatusState, PiSetup> = {
     mkdirSync(sessionDir, { recursive: true, mode: 0o700 });
     h.state.error = false;
     // --session-id picks up the desk's own conversation, even one Pi hadn't written to disk yet.
-    return { args: piArgs(args, { extension: setup.extension, sessionDir, sessionId: resumeSessionId, model: info.model, effort: info.effort, prompt }), rotateToken: true };
+    return { args: piArgs(args, { extension: setup.extension, sessionDir, sessionId: resumeSessionId, model: info.model, effort: info.effort, prompt, rpc: info.chat }), rotateToken: true };
   },
   bootHint: 'Open the terminal: complete Pi login or project setup',
   hook: {

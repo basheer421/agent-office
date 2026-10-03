@@ -35,6 +35,8 @@ export interface WorkerInfo {
   model?: string;
   /** Reasoning effort requested for this worker, when one was chosen. */
   effort?: AgentEffort;
+  /** In chat mode: the office drives its agent over a structured transport and draws its own chat (see protocol/agentchat.ts). Pi only. */
+  chat?: boolean;
   deskId: string;
   name: string;
   color: string;
@@ -177,7 +179,7 @@ export interface JailState {
 export type WorkerClientMsg =
   /** With `issue`, the worker is there for that GitHub issue: it moves to In progress at once, is assigned on GitHub (which keeps it there) and taken off the queue. */
   /** With `repos` (other floors' ids), the worker works in their repositories too, each in a worktree of its own (see WorkerInfo.repos). */
-  | { t: 'worker.spawn'; deskId: string; prompt?: string; worktree?: boolean; kind?: WorkerKind; provider?: AgentProvider; model?: string; effort?: AgentEffort; issue?: string; repos?: string[]; via?: 'herald' }
+  | { t: 'worker.spawn'; deskId: string; prompt?: string; worktree?: boolean; kind?: WorkerKind; provider?: AgentProvider; model?: string; effort?: AgentEffort; issue?: string; repos?: string[]; via?: 'herald'; chat?: boolean }
   | { t: 'worker.resume'; workerId: string }
   | { t: 'worker.kill'; workerId: string; cleanup?: WorktreeCleanup }
   /** Asks what the worker's worktree holds; answered with a `worker.worktree` message. */

@@ -1,7 +1,7 @@
 // The shapes the workers' modules and the provider adapters (server/providers/) share.
 import type serialize from '@xterm/addon-serialize';
-import type { Run, WorkerInfo, WorkerStatus } from '../../shared/protocol.js';
-import type { DshSession } from '../dsh.js';
+import type { ChatFooter, ChatServerMsg, Run, WorkerInfo, WorkerStatus } from '../../shared/protocol.js';
+import type { ChatLog } from '../../shared/chatlog.js';
 import type { PromptSource } from '../prompts.js';
 import type { Pty } from '../ptys.js';
 import type { UsageTracker } from '../usage.js';
@@ -51,16 +51,29 @@ export interface RunAs {
   apply(owner: string, env: Record<string, string>, dirs: string[]): Record<string, string>;
 }
 
+/** A worker's connection when it has no PTY: what the manager does with it. */
+export interface AgentSession {
+  /** Keystrokes typed into its terminal. */
+  writeInput(data: string): void;
+  /** A message for it, submitted. */
+  prompt(text: string): void;
+  /** Ends it quietly: the office is stopping it, not it failing. */
+  close(): void;
+}
+
 export interface Worker {
   info: WorkerInfo;
   /** The account that hired it, whose sign-ins it runs on. None: the office's own. */
   owner?: string;
   pty?: Pty;
   /**
-   * A DeepSeek Harness worker's ACP connection. It has no PTY: ACP updates are rendered into the
-   * same headless terminal the other providers mirror a process into (see dsh.ts).
+   * The connection of a worker that runs without a PTY: a DeepSeek Harness worker's ACP session (see
+   * dsh.ts), or a chat-mode Pi worker's RPC one (see rpc.ts). Both also draw what it does into the
+   * same headless terminal the other providers mirror a process into.
    */
-  dsh?: DshSession;
+  dsh?: AgentSession;
+  /** A chat-mode worker's chat and what's under it, kept across its runs (see rpc.ts). */
+  chat?: { log: ChatLog; footer: ChatFooter };
   term?: HeadlessTerminal;
   ser?: InstanceType<typeof serialize.SerializeAddon>;
   /** The screen so far, for a browser opening the terminal (see screen.ts). */
@@ -108,6 +121,8 @@ export interface WorkerEvents {
   /** It's gone (sent home), and what it was as it went. */
   remove(workerId: string, info?: WorkerInfo): void;
   data(workerId: string, data: string, viewers: string[]): void;
+  /** A chat-mode worker's chat, to `viewers` (see rpc.ts). */
+  chat(msg: ChatServerMsg, viewers: string[]): void;
   screen(workerId: string, frame: { cols: number; rows: number; lines: Record<number, Run[]>; full: boolean; cursor: [number, number] }): void;
   toast(text: string, level: 'info' | 'warn' | 'error'): void;
 }
