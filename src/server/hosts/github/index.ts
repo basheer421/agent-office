@@ -145,6 +145,21 @@ export class GitHubHost implements CodeHost {
     await this.repo.gh(args, { as });
   }
 
+  async setDraft(n: number, draft: boolean, as?: Actor): Promise<void> {
+    const repo = await this.repo.info();
+    await this.repo.gh(['pr', 'ready', String(n), '--repo', repo.path, ...(draft ? ['--undo'] : [])], { as });
+  }
+
+  async approve(n: number, as?: Actor): Promise<void> {
+    const repo = await this.repo.info();
+    await this.repo.gh(['pr', 'review', String(n), '--approve', '--repo', repo.path], { timeout: 60_000, as });
+  }
+
+  async reopen(n: number, as?: Actor): Promise<void> {
+    const repo = await this.repo.info();
+    await this.repo.gh(['pr', 'reopen', String(n), '--repo', repo.path], { as });
+  }
+
   async body(n: number | string, as?: Actor): Promise<string> {
     return this.repo.gh(['pr', 'view', String(n), '--json', 'body', '--jq', '.body'], { as });
   }

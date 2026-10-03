@@ -168,6 +168,21 @@ export class GitLabHost implements CodeHost {
     }
   }
 
+  /** GitLab keeps draft in the title: a "Draft: " prefix. */
+  async setDraft(n: number, draft: boolean, as?: Actor): Promise<void> {
+    const mr = await this.api<map.GlMergeRequest>(this.mr(n));
+    const bare = mr.title.replace(/^\s*(\[draft\]|\(draft\)|draft:|\[wip\]|wip:)\s*/i, '');
+    await this.call('PUT', this.mr(n), { title: draft ? `Draft: ${bare}` : bare }, as);
+  }
+
+  async approve(n: number, as?: Actor): Promise<void> {
+    await this.call('POST', `${this.mr(n)}/approve`, {}, as);
+  }
+
+  async reopen(n: number, as?: Actor): Promise<void> {
+    await this.call('PUT', this.mr(n), { state_event: 'reopen' }, as);
+  }
+
   createdBy(command: string, output: string): string | undefined {
     return glabCreatedBy(command, output);
   }

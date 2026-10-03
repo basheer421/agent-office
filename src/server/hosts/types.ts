@@ -34,6 +34,12 @@ export interface CodeHost {
   review(n: number, body: string, as?: Actor): Promise<string>;
   merge(n: number, o: MergeOptions, as?: Actor): Promise<void>;
   close(n: number, o: CloseOptions, as?: Actor): Promise<void>;
+  /** Back to a draft (`draft`), or ready for review. Present only when caps.draft. */
+  setDraft?(n: number, draft: boolean, as?: Actor): Promise<void>;
+  /** An approving review. Present only when caps.reviews. */
+  approve?(n: number, as?: Actor): Promise<void>;
+  /** Reopens one closed without merging. */
+  reopen?(n: number, as?: Actor): Promise<void>;
   /** A change request's description, and replacing it (the list of a change's others across repositories). */
   body?(n: number | string, as?: Actor): Promise<string>;
   setBody?(n: number | string, body: string, as?: Actor): Promise<void>;

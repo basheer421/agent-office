@@ -5,6 +5,7 @@ import { hostName } from './boards/pieces';
 import type { Net } from '../net';
 import { store, workerForPull } from '../state';
 import { h, openModal, timeAgo } from './dom';
+import { enableCardDrag, markPending } from './boards/drag';
 import { openIssue } from './boards/issue-window';
 import { labelChip, openLabels } from './boards/labels';
 import { inProgress } from './boards/progress';
@@ -187,7 +188,7 @@ export function openBoard(kind: 'issues' | 'pulls', net: Net, actions: BoardActi
       autocomplete: 'off',
     }) as HTMLInputElement;
     const clear = h('button.col-search-clear', { type: 'button', 'aria-label': 'Clear the title filter', title: 'Clear' }, '✕');
-    const section = h('section.column');
+    const section = h('section.column', { 'data-col': col.key });
     /** Deals the cards that match both filters. Typing only redoes this column, so the box keeps focus. */
     const fill = () => {
       const words = search.value.toLowerCase().split(/\s+/).filter(Boolean);
@@ -271,7 +272,7 @@ export function openBoard(kind: 'issues' | 'pulls', net: Net, actions: BoardActi
         body.append(
           column(col, all, (it, i) => {
             const w = workerForPull(store.workers.values(), it);
-            return card(
+            const el = card(
               `${store.host.words.refPrefix}${it.number}`,
               it.number,
               it.title,
@@ -289,10 +290,14 @@ export function openBoard(kind: 'issues' | 'pulls', net: Net, actions: BoardActi
               () => openPull(it, net, actions),
               store.host.caps.labels ? () => openLabels('pull', it, net) : undefined,
             );
+            el.dataset.number = String(it.number);
+            el.title = 'Drag to another column to move it';
+            return el;
           }),
         );
       }
     }
+    if (kind === 'pulls') markPending(body);
     body.querySelectorAll('.column > ul').forEach((ul, i) => (ul.scrollTop = scrolled[i] ?? 0));
     body.scrollLeft = scrollLeft;
     body.scrollTop = scrollTop;
@@ -304,6 +309,8 @@ export function openBoard(kind: 'issues' | 'pulls', net: Net, actions: BoardActi
   const unsubs = [store.on(kind, render), store.on('queue', render)];
   // Which desk a PR came from can change (a worker sent home, a PR opened from a desk).
   if (kind === 'pulls') unsubs.push(store.on('workers', render));
+  // Drag a PR's card to another column to mark it ready, approve, merge, close or reopen it.
+  const undrag = kind === 'pulls' ? enableCardDrag(body, net, render) : undefined;
   const timer = setInterval(() => {
     const st = kind === 'issues' ? store.issues : store.pulls;
     status.textContent = st.loading ? 'Refreshing…' : st.fetchedAt ? `Updated ${timeAgo(st.fetchedAt)}` : '';
@@ -312,6 +319,7 @@ export function openBoard(kind: 'issues' | 'pulls', net: Net, actions: BoardActi
     doing: kind === 'issues' ? '📋 at the issues board' : `🔀 at the ${store.host.words.crShort} board`,
     onClose: () => {
       unsubs.forEach((u) => u());
+      undrag?.();
       clearInterval(timer);
     },
   });

@@ -50,11 +50,15 @@ export const closeWaiters = new Map<string, (msg: { error?: string }) => void>()
 /** Open label pickers, by "issue:id" or "pull:N". */
 export const labelWaiters = new Map<string, (msg: { labels?: Label[]; error?: string }) => void>();
 
+/** Cards dragged to another column on the PR board, by number. */
+export const moveWaiters = new Map<number, (msg: Extract<ServerMsg, { t: 'cr.moved' }>) => void>();
+
 /** Main feeds server messages through here so an open merge, close or label dialog or comment box hears back. */
 export function routePullMessage(msg: ServerMsg) {
   if (msg.t === 'cr.merged') mergeWaiters.get(msg.number)?.(msg);
   if (msg.t === 'cr.commented') commentWaiters.get(`pull#${msg.number}`)?.(msg);
   if (msg.t === 'issues.commented') commentWaiters.get(`issue#${msg.id}`)?.(msg);
+  if (msg.t === 'cr.moved') moveWaiters.get(msg.number)?.(msg);
   if (msg.t === 'cr.closed') closeWaiters.get(`pull:${msg.number}`)?.(msg);
   if (msg.t === 'issues.closed') closeWaiters.get(`issue:${msg.id}`)?.(msg);
   if (msg.t === 'labels.changed') labelWaiters.get(`${msg.target === 'cr' ? 'pull' : 'issue'}:${msg.id}`)?.(msg);
