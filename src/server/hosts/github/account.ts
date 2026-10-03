@@ -3,7 +3,9 @@
 // may not be the one with rights to the repo. This picks the one that does and hands back its
 // token as GH_TOKEN for that gh child alone: it never runs `gh auth switch`, which would change the
 // account for everything else on the machine.
-import { runCli } from './cli/run.js';
+import { execFile, spawn, spawnSync, type ChildProcess, type SpawnOptions } from 'node:child_process';
+import { runCli } from '../../cli/run.js';
+import { gh } from './cli.js';
 
 /** The account picked for a repo, and the environment that has gh act as it. */
 export interface GhAccount {
@@ -101,4 +103,43 @@ export async function pickAccount(dir: string, base: NodeJS.ProcessEnv = process
     return a.active ? undefined : { login: a.login, env };
   }
   return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// The office's own GitHub account: signing gh in, finding and cloning repositories.
+
+/** Starts `gh repo clone repo dest [-- extra]` (see clone.ts and building.ts for how it's watched). */
+export function spawnClone(repo: string, dest: string, extra: string[], opts: SpawnOptions): ChildProcess {
+  return spawn('gh', ['repo', 'clone', repo, dest, ...(extra.length ? ['--', ...extra] : [])], opts);
+}
+
+/** `gh auth login` in this terminal, for the office's setup walkthrough. */
+export function authLoginHere(): void {
+  spawnSync('gh', ['auth', 'login'], { stdio: 'inherit' });
+}
+
+/** Who gh is signed in to GitHub as, or why it can't say. */
+export function ghUser(cwd: string): Promise<{ login?: string; missing?: boolean; signedOut?: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    execFile('gh', ['api', 'user', '--jq', '.login'], { cwd, timeout: 30_000 }, (err, stdout, stderr) => {
+      if (!err && stdout.trim()) return resolve({ login: stdout.trim() });
+      if ((err as NodeJS.ErrnoException | null)?.code === 'ENOENT') return resolve({ missing: true });
+      const why = String(stderr || err?.message || '').trim();
+      resolve({ signedOut: /auth login|not logged in|authentication|bad credentials|HTTP 401/i.test(why), error: why.split('\n').filter(Boolean).slice(-1)[0] ?? 'gh failed' });
+    });
+  });
+}
+
+/** A repository the office's gh can see: its real name and whether it has any commits. */
+export async function repoView(wanted: string, cwd: string): Promise<{ nameWithOwner?: string; isEmpty?: boolean }> {
+  return JSON.parse(await gh(['repo', 'view', wanted, '--json', 'nameWithOwner,isEmpty'], cwd, 30_000));
+}
+
+/** The office account's repositories, one JSON object per line ({name, description, private, pushedAt}). */
+export function userRepoLines(cwd: string): Promise<string> {
+  return gh(
+    ['api', '--paginate', 'user/repos?per_page=100&sort=pushed&affiliation=owner,collaborator,organization_member', '--jq', '.[] | {name: .full_name, description: (.description // ""), private: .private, pushedAt: .pushed_at}'],
+    cwd,
+    90_000,
+  );
 }

@@ -5,7 +5,7 @@ import path from 'node:path';
 import type { WorkerInfo } from '../../shared/protocol.js';
 import { DESK_BY_ID } from '../../shared/layout.js';
 import { isBusy } from '../../shared/status.js';
-import { gh } from '../github.js';
+import { hostFor, ownPr } from '../hosts/index.js';
 import type { GhAs } from '../signins.js';
 import { Worktrees } from '../worktrees.js';
 import { run } from './process.js';
@@ -18,36 +18,20 @@ const PR_TASK_MAX = 2500;
 /** Around the list of a change's pull requests in each of their descriptions, so it can be brought up to date. */
 const RELATED_START = '<!-- agent-office:related -->';
 const RELATED_END = '<!-- /agent-office:related -->';
-/** `gh pr create` being run, alone or in a longer line: not one that only names it (a grep for it, a quoted string). */
-const CREATES_PR = /(?:^|[\s;&|(])gh\s+pr\s+create\b/;
 /** How many of the pull requests a worker opened before its latest are remembered. */
 const MAX_PAST_PRS = 20;
-const PR_URL = /https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/g;
 
-/**
- * The pull request a worker opened itself, read off a shell command it ran and what that printed:
- * `gh pr create` prints the new pull request's URL, or the one its branch already had. The last one
- * printed is it.
- */
-export function ownPr(command: unknown, output: string): { repo: string; number: number; url: string } | undefined {
-  if (typeof command !== 'string' || !CREATES_PR.test(command)) return undefined;
-  const last = [...output.matchAll(PR_URL)].pop();
-  return last && { repo: last[1], number: Number(last[2]), url: last[0] };
-}
+export { ownPr };
 
 async function findOpenPr(branch: string, cwd: string): Promise<{ number: number; url: string } | undefined> {
-  const out = await gh(['pr', 'list', '--head', branch, '--state', 'open', '--limit', '1', '--json', 'number,url'], cwd);
-  const found = (JSON.parse(out || '[]') as { number: number; url: string }[])[0];
+  const found = await hostFor(cwd).findForBranch(branch);
   return found ? { number: found.number, url: found.url } : undefined;
 }
 
-/** `gh pr create` for a pushed branch; resolves to the new pull request. */
+/** Opens a change request for a pushed branch; resolves to the new pull request. */
 async function createPr(branch: string, base: string | undefined, title: string, body: string, cwd: string, as?: GhAs): Promise<{ number: number; url: string }> {
-  const out = await gh(['pr', 'create', '--head', branch, ...(base ? ['--base', base] : []), '--title', title, '--body', body], cwd, 60_000, as?.env);
-  const url = out.trim().split('\n').pop() ?? '';
-  const number = Number(/\/pull\/(\d+)/.exec(url)?.[1]);
-  if (!number) throw new Error(`gh did not return a pull request URL (${truncate(out, 120)})`);
-  return { number, url };
+  const pr = await hostFor(cwd).create({ source: branch, target: base, title, body }, as);
+  return { number: pr.number, url: pr.url };
 }
 
 /** owner/name#12 for a pull request on GitHub (which links it with its title), else its URL. */
@@ -245,9 +229,11 @@ export class WorkerPrs {
       if (prs.length > 1 && prs.some((p) => !p.existed)) {
         for (const p of prs) {
           try {
-            const body = await gh(['pr', 'view', p.url, '--json', 'body', '--jq', '.body'], p.cwd, 30_000, as?.env);
+            const host = hostFor(p.cwd);
+            if (!host.body || !host.setBody) continue;
+            const body = await host.body(p.url, as);
             const next = withRelated(body, relatedBlock(prs, p.url, wt.branch));
-            if (next !== body) await gh(['pr', 'edit', p.url, '--body', next], p.cwd, 60_000, as?.env);
+            if (next !== body) await host.setBody(p.url, next, as);
           } catch (err) {
             failed.push(`Couldn't list the other pull requests on ${p.repo} #${p.number}: ${(err as Error).message}`);
           }

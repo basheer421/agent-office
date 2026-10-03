@@ -6,12 +6,12 @@ import { num, str } from '../../office/input.js';
 import { here } from './common.js';
 import type { HandlerMap, ViewPieces } from './types.js';
 
-export const issuesView: ViewPieces['issues'] = (_ctx, floor) => floor?.github.issues ?? { items: [], fetchedAt: 0, loading: false };
-export const pullsView: ViewPieces['pulls'] = (_ctx, floor) => floor?.github.pulls ?? { items: [], fetchedAt: 0, loading: false };
+export const issuesView: ViewPieces['issues'] = (_ctx, floor) => floor?.boards.issues ?? { items: [], fetchedAt: 0, loading: false };
+export const pullsView: ViewPieces['pulls'] = (_ctx, floor) => floor?.boards.pulls ?? { items: [], fetchedAt: 0, loading: false };
 
 export const githubHandlers = {
   'gh.refresh'(ctx, c) {
-    void ctx.floorOf(c)?.github.refresh();
+    void ctx.floorOf(c)?.boards.refresh();
   },
   'gh.merge'(ctx, c, msg) {
     const who = c.peer.name;
@@ -22,7 +22,7 @@ export const githubHandlers = {
     ctx.withGitHub(
       c,
       (as) =>
-        void floor.github.merge(n, method, msg.deleteBranch === true, msg.auto === true, as).then((error) => {
+        void floor.boards.merge(n, method, msg.deleteBranch === true, msg.auto === true, as).then((error) => {
           ctx.sendTo(c, { t: 'gh.merged', number: n, error });
           if (error) return;
           ctx.toastFloor(floor, msg.auto ? `${who} set PR #${n} to merge once its checks pass` : `🎉 ${who} merged PR #${n}`);
@@ -48,7 +48,7 @@ export const githubHandlers = {
     ctx.withGitHub(
       c,
       (as) =>
-        void floor.github.comment(kind, n, body, as).then((r) => {
+        void floor.boards.comment(kind, n, body, as).then((r) => {
           ctx.sendTo(c, { t: 'gh.commented', kind, number: n, ...r });
           if (r.comment) ctx.toastFloor(floor, `💬 ${who} commented on ${kind === 'pull' ? 'PR' : 'issue'} #${n}`);
         }),
@@ -65,7 +65,7 @@ export const githubHandlers = {
     ctx.withGitHub(
       c,
       (as) =>
-        void floor.github.close(kind, n, { comment: str(msg.comment, 20000).trim() || undefined, reason, deleteBranch: msg.deleteBranch === true }, as).then((error) => {
+        void floor.boards.close(kind, n, { comment: str(msg.comment, 20000).trim() || undefined, reason, deleteBranch: msg.deleteBranch === true }, as).then((error) => {
           ctx.sendTo(c, { t: 'gh.closed', kind, number: n, error });
           if (error) return;
           if (kind === 'pull') return ctx.toastFloor(floor, `${who} closed PR #${n} without merging`);
@@ -92,7 +92,7 @@ export const githubHandlers = {
     ctx.withGitHub(
       c,
       (as) =>
-        void floor.github.setLabels(kind, n, add, remove, as).then((r) => {
+        void floor.boards.setLabels(kind, n, add, remove, as).then((r) => {
           ctx.sendTo(c, { t: 'gh.labeled', kind, number: n, ...r });
           if (r.labels) ctx.toastFloor(floor, `🏷️ ${who} labeled ${kind === 'pull' ? 'PR' : 'issue'} #${n}: ${[...add.map((l) => `+${l}`), ...remove.map((l) => `−${l}`)].join(' ')}`);
         }),

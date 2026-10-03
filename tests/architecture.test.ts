@@ -13,13 +13,8 @@ const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclud
 
 const ADAPTER_DIRS = /^src\/server\/(cli\/|hosts\/[^/]+\/|trackers\/[^/]+\/)/;
 
-/** Files that still spawn gh themselves. P1b removes them, until only the path resolve is left. */
-const SPAWN_ALLOWED = new Set([
-  'src/server/github.ts', // P1b removes: becomes hosts/github + trackers/github
-  'src/server/clone.ts', // P1b removes: hosts/github/account.ts
-  'src/server/setup.ts', // P1b removes: hosts/github/account.ts
-  'src/server/building.ts', // P1b removes: hosts/github/account.ts
-]);
+/** Files that still spawn gh themselves: none since P1b. */
+const SPAWN_ALLOWED = new Set<string>([]);
 
 const SPAWN = /\b(execFile|execFileSync|spawn|spawnSync|runCli|cliText|cliJson)\(\s*['"](gh|glab)['"]/;
 

@@ -1,4 +1,5 @@
-import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
+import { execFileSync, type ChildProcess } from 'node:child_process';
+import { spawnClone } from './hosts/index.js';
 import { closeSync, fstatSync, openSync, readSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import type { CloneProgress } from '../shared/protocol.js';
@@ -107,7 +108,7 @@ export class CloneRun {
     return new Promise((resolve) => {
       let child: ChildProcess;
       try {
-        child = spawn('gh', ['repo', 'clone', repo, dest, '--', '--progress'], {
+        child = spawnClone(repo, dest, ['--progress'], {
           cwd: path.dirname(dest),
           detached: GROUPS,
           stdio: ['ignore', fd, fd],

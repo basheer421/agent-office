@@ -7,8 +7,13 @@ import type { IssueTracker } from './types.js';
 export class NoTracker implements IssueTracker {
   readonly kind = 'none' as const;
   readonly caps: TrackerCapabilities = { comment: false, close: false, assign: false, labels: false };
+  /** `why`, when given, is shown on the board in place of an empty list. */
+  constructor(private why?: string) {}
 
-  async list(): Promise<Issue[]> { return []; }
+  async list(): Promise<Issue[]> {
+    if (this.why) throw new HostError('unsupported', this.why);
+    return [];
+  }
   async detail(): Promise<IssueDetail> {
     throw new HostError('unsupported', 'This project has no issue tracker connected');
   }

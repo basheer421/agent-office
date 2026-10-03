@@ -9,11 +9,17 @@ const unsupported = (): never => {
 
 export class NoHost implements CodeHost {
   readonly kind = 'none' as const;
+  /** `why`, when given, is shown on the board in place of an empty list. */
+  constructor(private why?: string) {}
   readonly caps: HostCapabilities = { labels: false, reviews: false, autoMerge: false, draft: false, lineComments: false, mergeMethods: [] };
   readonly words: HostVocabulary = { crNoun: 'pull request', crShort: 'PR', refPrefix: '#', cli: 'gh' };
 
   async viewer(): Promise<string> { return ''; }
-  async list(): Promise<ChangeRequest[]> { return []; }
+  async list(): Promise<ChangeRequest[]> {
+    if (this.why) throw new HostError('unsupported', this.why);
+    return [];
+  }
+  async get(): Promise<ChangeRequest> { return unsupported(); }
   async detail(): Promise<ChangeRequestDetail> { return unsupported(); }
   async diff(): Promise<string> { return unsupported(); }
   async create(): Promise<ChangeRequest> { return unsupported(); }

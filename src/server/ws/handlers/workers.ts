@@ -159,10 +159,10 @@ export const workerHandlers = {
       // Put it on the board now rather than at the next poll. A refresh already in flight
       // returns at once and can miss it, so look again shortly after.
       const own = r.prs.find((p) => !p.repo || p.repo === info?.worktree?.path.split(/[\\/]/).pop());
-      void floor.github.refresh().then(() => {
-        if (own && !floor.github.pulls.items.some((p) => p.number === own.number)) setTimeout(() => void floor.github.refresh(), 3000);
+      void floor.boards.refresh().then(() => {
+        if (own && !floor.boards.pulls.items.some((p) => p.number === own.number)) setTimeout(() => void floor.boards.refresh(), 3000);
       });
-      for (const x of info?.repos ?? []) void ctx.floors.get(x.floor)?.github.refresh();
+      for (const x of info?.repos ?? []) void ctx.floors.get(x.floor)?.boards.refresh();
     }));
   },
   'term.input'(ctx, c, msg) {

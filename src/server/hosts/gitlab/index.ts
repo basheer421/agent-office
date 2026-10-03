@@ -57,7 +57,7 @@ export class GitLabHost implements CodeHost {
     return { cwd: this.t.cwd, env: as?.env };
   }
 
-  private get<T>(path: string, as?: Actor): Promise<T> {
+  private api<T>(path: string, as?: Actor): Promise<T> {
     return cliJson<T>('glab', apiArgs(this.t.host, 'GET', path), this.opts(as));
   }
 
@@ -67,31 +67,31 @@ export class GitLabHost implements CodeHost {
 
   private async knownLabels(fresh = false): Promise<Map<string, Label>> {
     if (!this.labelCache || fresh) {
-      const ls = await this.get<map.GlLabel[]>(`${this.project}/labels?per_page=100`).catch(() => []);
+      const ls = await this.api<map.GlLabel[]>(`${this.project}/labels?per_page=100`).catch(() => []);
       this.labelCache = new Map(ls.map((l) => [l.name, map.label(l)]));
     }
     return this.labelCache;
   }
 
   async viewer(): Promise<string> {
-    return (await this.get<map.GlUser>('user')).username;
+    return (await this.api<map.GlUser>('user')).username;
   }
 
   async list(): Promise<ChangeRequest[]> {
-    const q = (state: string, n: number) => this.get<map.GlMergeRequest[]>(`${this.project}/merge_requests?state=${state}&per_page=${n}&order_by=updated_at`);
+    const q = (state: string, n: number) => this.api<map.GlMergeRequest[]>(`${this.project}/merge_requests?state=${state}&per_page=${n}&order_by=updated_at`);
     const [known, open, merged, closed] = await Promise.all([this.knownLabels(), q('opened', 100), q('merged', 30), q('closed', 20)]);
     return [...open, ...merged, ...closed].map((mr) => map.changeRequest(mr, known));
   }
 
   async detail(n: number): Promise<ChangeRequestDetail> {
     const [mr, notes, discussions, commits, viewer, approvals] = await Promise.all([
-      this.get<map.GlMergeRequest>(this.mr(n)),
-      this.get<map.GlNote[]>(`${this.mr(n)}/notes?per_page=100&sort=asc`),
-      this.get<map.GlDiscussion[]>(`${this.mr(n)}/discussions?per_page=100`),
-      this.get<unknown[]>(`${this.mr(n)}/commits?per_page=100`).catch(() => []),
+      this.api<map.GlMergeRequest>(this.mr(n)),
+      this.api<map.GlNote[]>(`${this.mr(n)}/notes?per_page=100&sort=asc`),
+      this.api<map.GlDiscussion[]>(`${this.mr(n)}/discussions?per_page=100`),
+      this.api<unknown[]>(`${this.mr(n)}/commits?per_page=100`).catch(() => []),
       this.viewer().catch(() => ''),
       // Approval rules are a paid tier on some instances: no approvals then, not an error.
-      this.get<{ approved_by?: { user: map.GlUser }[] }>(`${this.mr(n)}/approvals`).catch(() => undefined),
+      this.api<{ approved_by?: { user: map.GlUser }[] }>(`${this.mr(n)}/approvals`).catch(() => undefined),
     ]);
     const approvedBy = approvals?.approved_by ?? [];
     return {
@@ -114,20 +114,29 @@ export class GitLabHost implements CodeHost {
   }
 
   async diff(n: number): Promise<string> {
-    const files = await this.get<map.GlDiff[]>(`${this.mr(n)}/diffs?per_page=100`)
-      .catch(async () => (await this.get<{ changes: map.GlDiff[] }>(`${this.mr(n)}/changes`)).changes);
+    const files = await this.api<map.GlDiff[]>(`${this.mr(n)}/diffs?per_page=100`)
+      .catch(async () => (await this.api<{ changes: map.GlDiff[] }>(`${this.mr(n)}/changes`)).changes);
     return map.unifiedDiff(files);
   }
 
-  async create(o: { source: string; target: string; title: string; body: string }, as?: Actor): Promise<ChangeRequest> {
+  /** One merge request, by iid or its URL. */
+  async get(n: number | string): Promise<ChangeRequest> {
+    const iid = typeof n === 'number' ? n : Number(/\/merge_requests\/(\d+)/.exec(n)?.[1] ?? n);
+    if (!Number.isSafeInteger(iid) || iid <= 0) throw new HostError('not-found', `No merge request ${n}`);
+    return map.changeRequest(await this.api<map.GlMergeRequest>(this.mr(iid)), await this.knownLabels());
+  }
+
+  async create(o: { source: string; target?: string; title: string; body: string }, as?: Actor): Promise<ChangeRequest> {
+    // GitLab needs a target; without one it's the project's default branch.
+    const target = o.target ?? (await this.api<{ default_branch: string }>(this.project)).default_branch;
     const mr = await this.call<map.GlMergeRequest>('POST', `${this.project}/merge_requests`, {
-      source_branch: o.source, target_branch: o.target, title: o.title, description: o.body, remove_source_branch: true,
+      source_branch: o.source, target_branch: target, title: o.title, description: o.body, remove_source_branch: true,
     }, as);
     return map.changeRequest(mr, await this.knownLabels());
   }
 
   async findForBranch(branch: string): Promise<ChangeRequest | undefined> {
-    const mrs = await this.get<map.GlMergeRequest[]>(`${this.project}/merge_requests?state=opened&source_branch=${encodeURIComponent(branch)}`);
+    const mrs = await this.api<map.GlMergeRequest[]>(`${this.project}/merge_requests?state=opened&source_branch=${encodeURIComponent(branch)}`);
     return mrs[0] && map.changeRequest(mrs[0], await this.knownLabels());
   }
 
@@ -138,7 +147,7 @@ export class GitLabHost implements CodeHost {
   /** A review on GitLab is a note; returns its URL. */
   async review(n: number, body: string, as?: Actor): Promise<string> {
     const note = await this.call<map.GlNote>('POST', `${this.mr(n)}/notes`, { body }, as);
-    const mr = await this.get<map.GlMergeRequest>(this.mr(n));
+    const mr = await this.api<map.GlMergeRequest>(this.mr(n));
     return `${mr.web_url}#note_${note.id}`;
   }
 
