@@ -696,12 +696,12 @@ export class WorkerManager {
     }
     adapter?.usage?.locate?.(this.handleOf(w), cwd, env);
 
-    if (adapter?.transport === 'acp') {
-      // No PTY and no argv for prompts or resume: the office owns an ACP connection instead, and
-      // renders its updates into this same terminal (see dsh.ts).
+    if (adapter?.transport === 'acp' || adapter?.transport === 'rpc') {
+      // No PTY and no argv for prompts: the office owns an ACP or RPC connection instead, and
+      // renders its updates into this same terminal (see dsh.ts, pirpc.ts).
       const file = commandPath ?? shell;
       const acpArgs = commandPath ? args : shellRun(['exec', command, ...args].map((a, i) => (i < 2 ? a : shq(a))).join(' '));
-      launchAcp(this.ctx, w, term, { file, args: acpArgs, cwd, env, resumeSessionId, prompt });
+      launchAcp(this.ctx, w, term, { file, args: acpArgs, cwd, env, resumeSessionId, prompt }, adapter.transport);
       this.emitUpdate(w);
       this.persist();
       return;
