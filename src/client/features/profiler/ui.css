@@ -1,0 +1,14 @@
+.profiler {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 9999;
+  margin: 0;
+  padding: 6px 8px;
+  font: 11px/1.35 ui-monospace, monospace;
+  color: #cfe;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: pre;
+}

@@ -20,6 +20,7 @@ import { createWorlds } from './core/worlds';
 import { frameLoop, installLoop } from './core/loop';
 import { installRenderBudget } from './core/render-budget';
 import { installPerformance } from './features/performance';
+import { installProfiler } from './features/profiler';
 import { installPlace } from './core/place';
 import { installYou, makeMe, makeSmoke, makeSound } from './core/you';
 import { installTravel } from './core/travel';
@@ -97,6 +98,7 @@ parts.stage = createScene(canvas, makeRenderer(canvas) ?? (await noWebGL()));
 parts.worlds = createWorlds(ctx);
 installSky(ctx);
 installRenderBudget(ctx, parts);
+installProfiler(ctx, parts);
 
 // ---- The install list ---------------------------------------------------------------------------
 parts.boards = installBoards(ctx, { aimedNote: () => parts.pointer.aimedNote(), pickUp: (it) => parts.cards.pickUp(it), boardActions: () => parts.actions.boardActions(), showQueue: () => parts.waiting.showQueue() });

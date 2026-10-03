@@ -192,6 +192,8 @@ interface TickEntry {
 /** What runs each frame, phase by phase (see TICK_PHASES). */
 export class Ticks {
   private readonly phases = new Map<TickPhase, List<TickEntry>>();
+  /** Told how long each phase took (ms), when something's measuring (features/profiler). */
+  timed: ((phase: TickPhase, ms: number) => void) | null = null;
 
   add(phase: TickPhase, fn: (f: Frame) => void): Off {
     if (!TICK_PHASES.includes(phase)) throw new Error(`No such frame phase: ${phase}`);
@@ -199,7 +201,12 @@ export class Ticks {
   }
 
   run(f: Frame): void {
-    for (const phase of TICK_PHASES) for (const e of this.phases.get(phase)?.items ?? []) e.fn(f);
+    const timed = this.timed;
+    for (const phase of TICK_PHASES) {
+      const start = timed ? performance.now() : 0;
+      for (const e of this.phases.get(phase)?.items ?? []) e.fn(f);
+      timed?.(phase, performance.now() - start);
+    }
   }
 }
 
