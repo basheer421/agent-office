@@ -52,9 +52,19 @@ export function installPerformance(ctx: Ctx, parts: Pick<Parts, 'stage'>): Perfo
     ctx.renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 2));
   }
 
+  // Calm weather: a clear sky for you alone (the sky's preview, see Sky.show), so no rain to draw or hear.
+  let calm = false;
+  function applyWeather() {
+    const want = ctx.settings.weather === 'calm';
+    if (want === calm) return;
+    calm = want;
+    ctx.sky.show(want ? { weather: 'clear', intensity: 0 } : {});
+  }
+
   return {
     pace(now) {
       applyQuality();
+      applyWeather();
       const { player } = ctx;
       const state: PaceState = {
         hidden: document.hidden,

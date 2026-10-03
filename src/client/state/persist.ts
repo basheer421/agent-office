@@ -73,6 +73,8 @@ export interface Settings {
   fps: FpsCap;
   /** Low: no outlines and one pixel per CSS pixel, for a laptop's graphics. */
   quality: 'high' | 'low';
+  /** Calm: always a clear sky for you, no rain, snow or thunder to draw or hear, whatever the forecast. */
+  weather: 'live' | 'calm';
 }
 
 const SETTINGS_KEY = 'agent-office.settings';
@@ -135,7 +137,7 @@ export function rememberSpot(s: Spot) {
 }
 
 export function loadSettings(): Settings {
-  const s: Settings = { view: 'first', volume: 0.7, muted: false, music: 0.5, musicMuted: false, pageTurns: true, pushToTalk: false, notify: true, needsYouSound: 'once', hud: { ...HUD_DEFAULTS }, pins: [], fps: 'auto', quality: 'high' };
+  const s: Settings = { view: 'first', volume: 0.7, muted: false, music: 0.5, musicMuted: false, pageTurns: true, pushToTalk: false, notify: true, needsYouSound: 'once', hud: { ...HUD_DEFAULTS }, pins: [], fps: 'auto', quality: 'high', weather: 'live' };
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? 'null');
     if (saved?.view === 'first' || saved?.view === 'third') s.view = saved.view;
@@ -149,6 +151,7 @@ export function loadSettings(): Settings {
     if (NEEDS_YOU_SOUNDS.includes(saved?.needsYouSound)) s.needsYouSound = saved.needsYouSound;
     for (const k of Object.keys(s.hud) as HudPanel[]) if (typeof saved?.hud?.[k] === 'boolean') s.hud[k] = saved.hud[k];
     if (FPS_CAPS.includes(saved?.fps)) s.fps = saved.fps;
+    if (saved?.weather === 'live' || saved?.weather === 'calm') s.weather = saved.weather;
     if (saved?.quality === 'high' || saved?.quality === 'low') s.quality = saved.quality;
     if (Array.isArray(saved?.pins)) s.pins = saved.pins.filter((p: unknown): p is string => typeof p === 'string').slice(0, 30);
   } catch {
