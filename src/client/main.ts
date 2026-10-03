@@ -19,6 +19,7 @@ import { createScene, fitWindow, installSky, makeRenderer, noWebGL } from './cor
 import { createWorlds } from './core/worlds';
 import { frameLoop, installLoop } from './core/loop';
 import { installRenderBudget } from './core/render-budget';
+import { installPerformance } from './features/performance';
 import { installPlace } from './core/place';
 import { installYou, makeMe, makeSmoke, makeSound } from './core/you';
 import { installTravel } from './core/travel';
@@ -86,7 +87,8 @@ await preloadModels();
 const parts = {} as Parts;
 const { ctx, core } = createCtx(parts);
 // The office's own parts of each frame, before anything else's.
-installLoop(ctx, core, parts, { offer2d });
+const perf = installPerformance(ctx, parts);
+installLoop(ctx, core, parts, { offer2d, slowed: perf.slowed });
 
 // ---- Renderer & scene ---------------------------------------------------------------------------
 const canvas = $('scene') as HTMLCanvasElement;
@@ -184,7 +186,7 @@ parts.hud = installHud(ctx, core, parts);
 
 // ---- Main loop ---------------------------------------------------------------------------------------
 fitWindow(ctx);
-const frame = frameLoop(ctx, loading);
+const frame = frameLoop(ctx, loading, perf.pace);
 
 // ---- Boot ------------------------------------------------------------------------------------------
 function boot() {

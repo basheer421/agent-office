@@ -11,6 +11,7 @@ import { h, openModal, timeAgo } from './dom';
 import { agentFields, choiceLabel, officeChoice } from './provider';
 import { openPromptEditor, rewrittenPrompts } from './prompts';
 import { outsideSetting } from './settings-sky';
+import { graphicsSetting } from './settings-graphics';
 import { choiceRow } from './settings-rows';
 
 const VIEWS: [ViewMode, string, string][] = [
@@ -446,6 +447,7 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
     you: [
       setting('Your character', null, character),
       setting('Camera view', 'you', seg, note),
+      graphicsSetting(() => settings, change, (body) => setting('Graphics', 'you', ...body)),
       setting('Signed in', null, h('div.volume', {}, signOut), h('p.setting-note', {}, account ? `As ${account.name}, with your own account (${account.role}).` : 'With the shared office password.')),
     ],
     sound: [
