@@ -1,14 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Claims, MergeWatch } from '../src/server/github.js';
-import type { GhIssue, GhPull } from '../src/shared/protocol.js';
+import { MergeWatch } from '../src/server/hosts/index.js';
+import { Claims } from '../src/server/trackers/index.js';
+import type { ChangeRequest } from '../src/shared/model/change-request.js';
+import type { GhIssue } from '../src/shared/protocol.js';
 
-const pull = (number: number, state: string): GhPull => ({
-  number, title: `PR ${number}`, state, isDraft: false, url: '', author: '', labels: [], reviewDecision: '',
-  headRefName: `b${number}`, baseRefName: 'main', createdAt: '', updatedAt: '', additions: 0, deletions: 0,
+const pull = (number: number, state: string): ChangeRequest => ({
+  number, title: `PR ${number}`, state: ({ OPEN: 'open', MERGED: 'merged', CLOSED: 'closed' } as const)[state as 'OPEN'], url: '', author: '', labels: [], reviewDecision: '',
+  sourceBranch: `b${number}`, targetBranch: 'main', createdAt: '', updatedAt: '', additions: 0, deletions: 0,
   checks: 'none', body: '', closes: [],
 });
-const numbers = (ps: GhPull[]) => ps.map((p) => p.number);
+const numbers = (ps: ChangeRequest[]) => ps.map((p) => p.number);
 
 test('a pull request that was open at the last look and is merged now rings once', () => {
   const w = new MergeWatch();
@@ -71,4 +73,18 @@ test('handed over twice, the first answer failing leaves the second one standing
   assert.deepEqual(taken(c.mark([issue(7)])), [7]);
   second(true, 3000);
   assert.deepEqual(taken(c.mark([issue(7, ['octocat'])], 3500)), []);
+});
+
+test('the wire keeps GitHub words for change request states until P1c', async () => {
+  const { ghPull } = await import('../src/server/ws/legacy-gh.js');
+  const { changeRequest } = await import('../src/server/hosts/github/map.js');
+  const raw = { number: 3, title: 't', state: 'OPEN', isDraft: true, url: 'u', author: { login: 'a' }, labels: [{ name: 'bug', color: 'ff0000' }], headRefName: 'b', headRefOid: 'abc', baseRefName: 'main', closingIssuesReferences: [{ number: 7 }] };
+  const p = ghPull(changeRequest(raw));
+  assert.equal(p.state, 'OPEN');
+  assert.equal(p.isDraft, true);
+  assert.equal(p.headRefName, 'b');
+  assert.equal(p.headRefOid, 'abc');
+  assert.deepEqual(p.closes, [7]);
+  assert.deepEqual(p.labels, [{ name: 'bug', color: '#ff0000' }]);
+  assert.equal(ghPull(changeRequest({ ...raw, state: 'MERGED', isDraft: false })).state, 'MERGED');
 });

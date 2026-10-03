@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { ChangesState, FloorInfo, PeerInfo, ProjectInfo, ServerMsg, WorkerInfo } from '../shared/protocol.js';
 import { isBusy } from '../shared/status.js';
@@ -8,7 +8,9 @@ import type { FloorDef } from './building.js';
 import { excludeFromGit } from './config.js';
 import { agentProviders, configuredProvider } from './agents.js';
 import { WorkerManager, workedMs, type HookEnv, type RunAs } from './workers.js';
-import { GitHub, MergeWatch } from './github.js';
+import { hostFor, MergeWatch, type CodeHost } from './hosts/index.js';
+import { trackerFor, type IssueTracker } from './trackers/index.js';
+import { Boards } from './boards.js';
 import type { GhAs } from './signins.js';
 import { TaskQueue } from './queue.js';
 import { Changes } from './changes.js';
@@ -74,7 +76,7 @@ export interface FloorContext {
 
 /** The open pull request on a floor's board whose head is `branch`. */
 function openPull(floor: Floor, branch: string): { number: number; url: string } | undefined {
-  const pr = floor.github.pulls.items.find((p) => p.state === 'OPEN' && p.headRefName === branch);
+  const pr = floor.boards.pulls.items.find((p) => p.state === 'OPEN' && p.headRefName === branch);
   return pr ? { number: pr.number, url: pr.url } : undefined;
 }
 
@@ -113,7 +115,11 @@ export class Floor {
   readonly dir: string;
   readonly project: ProjectInfo;
   readonly workers: WorkerManager;
-  readonly github: GitHub;
+  /** Where its change requests live, and its issues; both reached only through their ports. */
+  readonly host: CodeHost;
+  readonly tracker: IssueTracker;
+  /** The two boards: the lists as last fetched, kept fresh. */
+  readonly boards: Boards;
   readonly queue: TaskQueue;
   readonly changes: Changes;
   readonly decor: Decor;
@@ -207,8 +213,11 @@ export class Floor {
     );
     this.workers.wing = () => this.plan.wing;
 
-    this.github = new GitHub(
-      def.dir,
+    this.host = hostFor(def.dir);
+    this.tracker = trackerFor(def.dir, this.host.kind === 'github' ? 'github' : 'none');
+    this.boards = new Boards(
+      this.host,
+      this.tracker,
       (state) => ctx.emit(this, { t: 'gh.issues', state }),
       (state) => {
         ctx.emit(this, { t: 'gh.pulls', state });
@@ -216,7 +225,7 @@ export class Floor {
         if (state.loading || state.error) return;
         // A worker may have opened one from a branch it made itself, mid-turn or from a shell.
         void this.workers.syncBranches();
-        for (const p of this.merges.look(state.items)) {
+        for (const p of this.merges.look(this.boards.changeRequests)) {
           ctx.toast(this, `🎉 PR #${p.number} merged: ${p.title}`);
           this.merged(p.number);
         }
@@ -234,9 +243,9 @@ export class Floor {
       toast: (text, level) => ctx.toast(this, text, level),
       claimIssue: (issue, owner) => {
         const as = ctx.ghAs(owner);
-        return typeof as === 'string' ? Promise.resolve(as) : this.github.claim(issue, as);
+        return typeof as === 'string' ? Promise.resolve(as) : this.boards.claim(issue, as);
       },
-      refreshGitHub: () => void this.github.refresh(),
+      refreshGitHub: () => void this.boards.refresh(),
       hiringPaused: () => ctx.ledger.hiringPaused,
       room: () => ctx.capacity.room(),
       emptied: () => {
@@ -269,7 +278,7 @@ export class Floor {
         hiringPaused: () => ctx.ledger.hiringPaused,
         postReview: (pr, file, owner) => {
           const as = ctx.ghAs(owner);
-          return typeof as === 'string' ? Promise.reject(new Error(as)) : this.github.review(pr, file, as);
+          return typeof as === 'string' ? Promise.reject(new Error(as)) : Promise.resolve().then(() => this.boards.review(pr, readFileSync(file, 'utf8'), as));
         },
         prompt: (id) => ctx.prompts.text(id),
       },
@@ -294,14 +303,14 @@ export class Floor {
           worktreeBase: r.base,
           baseBranch: r.from ?? null,
           openPull: (branch) => (other ? openPull(other, branch) : undefined),
-          refreshGitHub: () => void other?.github.refresh(),
+          refreshGitHub: () => void other?.boards.refresh(),
         };
       },
       (branch) => openPull(this, branch),
       {
         state: (state, ids) => ctx.changes(state, ids),
         toast: (text, level) => ctx.toast(this, text, level),
-        refreshGitHub: () => void this.github.refresh(),
+        refreshGitHub: () => void this.boards.refresh(),
       },
     );
 
@@ -310,10 +319,10 @@ export class Floor {
     this.whiteboard = new Whiteboard(dataDir);
     this.ready = this.workers.start();
 
-    void this.github.refresh();
+    void this.boards.refresh();
     // A floor with people on it, or work under way, keeps its boards fresh; the others check in now and then.
     this.timer = setInterval(() => {
-      if (this.active() || Date.now() - this.github.issues.fetchedAt > IDLE_REFRESH_MS) void this.github.refresh();
+      if (this.active() || Date.now() - this.boards.issues.fetchedAt > IDLE_REFRESH_MS) void this.boards.refresh();
     }, REFRESH_MS);
   }
 
@@ -333,8 +342,8 @@ export class Floor {
     this.landedTimer = setTimeout(() => {
       this.landedTimer = undefined;
       if (!this.ctx.leaveOnMerge()) return;
-      const pullsOf = (id: string) => this.ctx.floor(id)?.github.pulls.items;
-      for (const landed of landedWorkers(this.workers.list(), this.github.pulls.items, this.queue.state().tasks, pullsOf)) {
+      const pullsOf = (id: string) => this.ctx.floor(id)?.boards.pulls.items;
+      for (const landed of landedWorkers(this.workers.list(), this.boards.pulls.items, this.queue.state().tasks, pullsOf)) {
         const { worker, head, heads } = landed;
         if (!worker.repos?.length) {
           this.goHome(worker, `PR #${landed.pr} merged`, head);
@@ -357,7 +366,7 @@ export class Floor {
    * and, for a worker across repositories, on the others too (see landedWork).
    */
   landed(worker: WorkerInfo): Landed | undefined {
-    return landedWork(worker, this.github.pulls.items, this.queue.state().tasks, (id) => this.ctx.floor(id)?.github.pulls.items);
+    return landedWork(worker, this.boards.pulls.items, this.queue.state().tasks, (id) => this.ctx.floor(id)?.boards.pulls.items);
   }
 
   /**
@@ -382,7 +391,7 @@ export class Floor {
 
   /** Someone just walked in: boards that haven't been looked at in a while get fetched again. */
   arrived() {
-    if (Date.now() - Math.max(this.github.issues.fetchedAt, this.github.pulls.fetchedAt) > REFRESH_MS) void this.github.refresh();
+    if (Date.now() - Math.max(this.boards.issues.fetchedAt, this.boards.pulls.fetchedAt) > REFRESH_MS) void this.boards.refresh();
   }
 
   private active(): boolean {
@@ -413,7 +422,7 @@ export class Floor {
     clearInterval(this.timer);
     clearTimeout(this.landedTimer);
     this.dog.stop();
-    this.github.stop();
+    this.boards.stop();
     this.queue.shutdown();
     this.meetings.shutdown();
     this.changes.stop();

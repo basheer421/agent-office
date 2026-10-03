@@ -16,7 +16,7 @@ export function gates(ctx: Ctx): Gates {
     floor.queue.dropIssue(n);
     const as = c.accountId ? ctx.signins.ghAs(c.accountId) : undefined;
     if (typeof as === 'string') return ctx.warn(c, `Couldn't assign issue #${n} on GitHub: ${as}`);
-    void floor.github.claim(n, as).then((err) => ctx.warn(c, err && `Couldn't assign issue #${n} on GitHub: ${err}`));
+    void floor.boards.claim(n, as).then((err) => ctx.warn(c, err && `Couldn't assign issue #${n} on GitHub: ${err}`));
   };
 
   /**

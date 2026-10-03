@@ -6,8 +6,11 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { parseRemote, pickAccount } from '../src/server/gh-account.js';
-import { GitHub } from '../src/server/github.js';
+import { hostFor, parseRemote, pickAccount } from '../src/server/hosts/index.js';
+import { trackerFor } from '../src/server/trackers/index.js';
+import { Boards } from '../src/server/boards.js';
+
+const boards = (dir: string) => new Boards(hostFor(dir, 'github'), trackerFor(dir, 'github'), () => {}, () => {});
 
 function office(remote: string, push: Record<string, boolean> = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'gh-account-'));
@@ -60,7 +63,7 @@ test("the account named like the repo's owner is used, not gh's active one", asy
     assert.equal(picked?.login, 'basheer421');
     assert.equal(picked?.env.GH_TOKEN, 'tok-basheer421');
 
-    const g = new GitHub(o.repo, () => {}, () => {});
+    const g = boards(o.repo);
     assert.equal(await g.merge(4, 'squash', false, false), undefined, 'the merge goes through as the owner');
     const merges = readFileSync(o.log, 'utf8').split('\n').filter((l) => l.includes('pr merge'));
     assert.deepEqual(merges.map((l) => l.split(' ')[0]), ['GH_TOKEN=tok-basheer421']);
@@ -74,7 +77,7 @@ test('on an org repo the account that can push is used, and none fitting leaves 
   const neither = office('https://github.com/some-org/app.git');
   await withPath(neither.env, async () => {
     assert.equal(await pickAccount(neither.repo), undefined);
-    const err = await new GitHub(neither.repo, () => {}, () => {}).merge(4, 'squash', false, false);
+    const err = await boards(neither.repo).merge(4, 'squash', false, false);
     assert.match(err ?? '', /gh acted as @g137/, 'a denied merge names the account');
   });
 });

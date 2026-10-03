@@ -1,4 +1,4 @@
-import { execFile, spawnSync } from 'node:child_process';
+import { authLoginHere, ghUser } from './hosts/index.js';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
@@ -206,19 +206,8 @@ async function githubLogin(cwd: string): Promise<string | undefined> {
     }
     console.log("\n  🐙 The office clones projects with the GitHub CLI (gh), and it isn't signed in.");
     if (/^n/i.test(await ask('     Sign in to GitHub now? [Y/n] '))) return undefined;
-    spawnSync('gh', ['auth', 'login'], { stdio: 'inherit' });
+    authLoginHere();
   }
-}
-
-function ghUser(cwd: string): Promise<{ login?: string; missing?: boolean; signedOut?: boolean; error?: string }> {
-  return new Promise((resolve) => {
-    execFile('gh', ['api', 'user', '--jq', '.login'], { cwd, timeout: 30_000 }, (err, stdout, stderr) => {
-      if (!err && stdout.trim()) return resolve({ login: stdout.trim() });
-      if ((err as NodeJS.ErrnoException | null)?.code === 'ENOENT') return resolve({ missing: true });
-      const why = String(stderr || err?.message || '').trim();
-      resolve({ signedOut: /auth login|not logged in|authentication|bad credentials|HTTP 401/i.test(why), error: why.split('\n').filter(Boolean).slice(-1)[0] ?? 'gh failed' });
-    });
-  });
 }
 
 async function pickProjects(building: Building, login: string) {
