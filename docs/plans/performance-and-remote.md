@@ -22,6 +22,29 @@ Measured on Bachir's MacBook (2026-10-03), office started on this repo, nobody c
 | City, cars, sky, weather, holiday props, dog… all tick every frame | tick phases in `loop.ts` | CPU per frame scales with features, not with what's on screen |
 | No visibility handling beyond sound | only `sound/core.ts` listens to `visibilitychange` | — |
 
+### Measured: idle office, 10 s (issue #7, 2026-10-03)
+
+Built from `main` after #20/#21, headless Chromium on ANGLE Metal (Apple M5), 1400×900, nobody touching anything, read with the `?profile` overlay (`features/profiler/`) and `window.__renderStats()`. Each figure is the mean of ten 1 s windows.
+
+| | Office (base map) | Space station |
+|---|---|---|
+| Frames run | 30 fps (battery/focus cap) | 19 fps (idle throttle drops to 10 fps 20 s in) |
+| JS per frame, all phases | 9.5 ms | 9.9 ms |
+| Draw calls / triangles | 2 377 / 566 k | 727 / 103 k |
+| Textures on the GPU | 67 | 102 |
+| Texture uploads | **477 /s** | 0 /s |
+
+Top phases, ms per frame:
+
+| Phase | Office | Station | What's in it |
+|---|---|---|---|
+| `render` | 5.84 | 5.98 | `effect.render` (scene + outline pass + hands): CPU-side submit of the draw calls |
+| `aim` | 3.19 | 2.91 | `input/pointer.ts` raycast for what you look at, every frame, even standing still |
+| `env` | 0.22 | 0.69 | sky, scenic cull, holiday props |
+| everything else | < 0.1 each | < 0.1 each | |
+
+Takeaways: (1) `aim` is a third of the JS frame for nothing: skip the raycast when the camera and pointer haven't moved. (2) The office uploads ~16 textures a frame at 30 fps: in-world screens re-uploading unchanged canvases (item 4 below) is real, the station has none. (3) 2.4 k draw calls on the base map is what `render` pays for; merging/instancing the static building is the next lever after that. GPU frame time wasn't measured here (these are CPU-side numbers); the Performance panel on a real tab is the way to read it.
+
 ### Optimisations, cheapest first
 
 | # | Change | Gain | Effort |
@@ -31,7 +54,7 @@ Measured on Bachir's MacBook (2026-10-03), office started on this repo, nobody c
 | 3 | **Quality setting**: pixel ratio 1, outline off | 2–4× GPU | S |
 | 4 | Screens/terminals: update a texture only when its content changed **and** it's in the camera frustum and within distance; other floors never | Removes most texture uploads | M |
 | 5 | **"Lite world" toggle**: no city/cars/weather/holiday; the building only | CPU per frame | M |
-| 6 | Profile properly: Chrome Performance panel on an idle office for 10 s, list top tick phases by ms | Turns guesses into numbers | S, do first |
+| 6 | ~~Profile properly~~ done (#7): numbers above; `?profile` shows them live | Turns guesses into numbers | done |
 | 7 | `/lite` already exists (non-3D view): check how far it goes as the "daily driver" view | Maybe zero work | S |
 
 Rule from `AGENTS.md`: each of these is its own module through the registries (Settings entry + tick-phase gate), never in `main.ts`.

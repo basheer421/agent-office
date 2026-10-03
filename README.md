@@ -394,6 +394,8 @@ npm test
 
 Server edits restart the server, not the workers. After changing `ptyhost.ts`, bump `PTY_PROTOCOL` in `ptys.ts` so the next server replaces the PTY host.
 
+Open the office with `?profile` (or call `__profile()` in the console) for a timing overlay: frames per second, ms per frame phase and texture uploads per second; `__profileStats()` reads the same numbers. The last idle-office measurements are in [docs/plans/performance-and-remote.md](docs/plans/performance-and-remote.md).
+
 [docs/code-layout.md](docs/code-layout.md) says where the code lives, and where a new feature's pieces go.
 
 The rules for coding agents working on this repository are in [`AGENTS.md`](AGENTS.md), which Codex, OpenCode and most other agent CLIs read. `CLAUDE.md` only imports it for Claude Code, so new rules go in `AGENTS.md`.
