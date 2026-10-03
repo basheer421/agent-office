@@ -9,6 +9,7 @@ import { changesHandlers, changesHooks } from './changes.js';
 import { decorHandlers, decorView } from './decor.js';
 import { dogHandlers, dogView } from './dog.js';
 import { floorHandlers, projectView } from './floors.js';
+import { boardMovesHandlers } from './board-moves.js';
 import { boardsHandlers, hostView, issuesView, pullsView, trackerView } from './boards.js';
 import { jukeboxHandlers, jukeboxView } from './jukebox.js';
 import { meetingHandlers, meetingView } from './meetings.js';
@@ -37,6 +38,7 @@ export const handlers: HandlerMap<ClientMsg> = {
   ...dogHandlers,
   ...floorHandlers,
   ...boardsHandlers,
+  ...boardMovesHandlers,
   ...jukeboxHandlers,
   ...meetingHandlers,
   ...planHandlers,

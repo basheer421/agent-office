@@ -1,0 +1,7 @@
+/* Dragging a card between the PR board's columns (drag.ts). */
+.board .card[data-number] { touch-action: auto; user-select: none; -webkit-user-select: none; }
+.board .body.dragging, .board .body.dragging * { cursor: grabbing !important; }
+.board .card.drag-source { opacity: .35; }
+.board .card.moving { opacity: .5; pointer-events: none; filter: grayscale(.6); }
+.board .column.drop-over { outline: 4px dashed var(--ink); outline-offset: -8px; background: rgba(255, 214, 102, .35); }
+.drag-ghost { position: fixed; z-index: 10000; pointer-events: none; margin: 0; list-style: none; transform: rotate(3deg) scale(1.04); box-shadow: 0 12px 24px rgba(43,45,66,.35); }
