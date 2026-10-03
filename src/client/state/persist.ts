@@ -45,6 +45,10 @@ export const HUD_DEFAULTS: Record<HudPanel, boolean> = { workers: false, people:
 export const NEEDS_YOU_SOUNDS = ['off', 'once', 'remind'] as const;
 export type NeedsYouSound = (typeof NEEDS_YOU_SOUNDS)[number];
 
+/** The most frames a second ⚙️ Settings lets the office draw. `auto` is 30 on battery, the display's rate on power (see features/performance/pace.ts). */
+export const FPS_CAPS = ['auto', '30', '60', 'max'] as const;
+export type FpsCap = (typeof FPS_CAPS)[number];
+
 export interface Settings {
   view: ViewMode;
   /** Office sounds, 0–1. */
@@ -65,6 +69,10 @@ export interface Settings {
   hud: Record<HudPanel, boolean>;
   /** The ☰ menu's actions you pinned to the top bar, by id. */
   pins: string[];
+  /** The most frames a second to draw (see features/performance/pace.ts). */
+  fps: FpsCap;
+  /** Low: no outlines and one pixel per CSS pixel, for a laptop's graphics. */
+  quality: 'high' | 'low';
 }
 
 const SETTINGS_KEY = 'agent-office.settings';
@@ -127,7 +135,7 @@ export function rememberSpot(s: Spot) {
 }
 
 export function loadSettings(): Settings {
-  const s: Settings = { view: 'first', volume: 0.7, muted: false, music: 0.5, musicMuted: false, pageTurns: true, pushToTalk: false, notify: true, needsYouSound: 'once', hud: { ...HUD_DEFAULTS }, pins: [] };
+  const s: Settings = { view: 'first', volume: 0.7, muted: false, music: 0.5, musicMuted: false, pageTurns: true, pushToTalk: false, notify: true, needsYouSound: 'once', hud: { ...HUD_DEFAULTS }, pins: [], fps: 'auto', quality: 'high' };
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? 'null');
     if (saved?.view === 'first' || saved?.view === 'third') s.view = saved.view;
@@ -140,6 +148,8 @@ export function loadSettings(): Settings {
     if (typeof saved?.notify === 'boolean') s.notify = saved.notify;
     if (NEEDS_YOU_SOUNDS.includes(saved?.needsYouSound)) s.needsYouSound = saved.needsYouSound;
     for (const k of Object.keys(s.hud) as HudPanel[]) if (typeof saved?.hud?.[k] === 'boolean') s.hud[k] = saved.hud[k];
+    if (FPS_CAPS.includes(saved?.fps)) s.fps = saved.fps;
+    if (saved?.quality === 'high' || saved?.quality === 'low') s.quality = saved.quality;
     if (Array.isArray(saved?.pins)) s.pins = saved.pins.filter((p: unknown): p is string => typeof p === 'string').slice(0, 30);
   } catch {
     // storage blocked
