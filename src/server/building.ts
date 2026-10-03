@@ -14,6 +14,8 @@ export interface FloorDef {
   /** owner/name on GitHub. */
   repo?: string;
   dir: string;
+  /** 'local': opened with 📂 Open folder, not cloned. */
+  source?: 'local' | 'cloned';
   palette: number;
   addedBy: string;
   addedAt: number;
@@ -251,6 +253,16 @@ export class Building {
     return def;
   }
 
+  /** Makes a folder already on the office's machine a floor (📂 Open folder). Returns it, or why not. */
+  openFolder(dir: string, by: string): FloorDef | string {
+    const abs = path.resolve(dir);
+    const known = this.defs.find((d) => path.resolve(d.dir) === abs);
+    if (known) return `${tildify(abs)} is already the ${known.name} floor`;
+    if (this.defs.length + this.cloning.size >= MAX_FLOORS) return `The building is full (${MAX_FLOORS} floors)`;
+    const def = { ...this.newDef(path.basename(abs), originRepo(abs), abs, by), source: 'local' as const };
+    return this.defs.push(def), this.save(), def;
+  }
+
   /** The office keeps its own data in this floor's checkout. */
   isLocal(id: string): boolean {
     return id === this.localId;
@@ -406,7 +418,7 @@ export class Building {
           name: typeof s.name === 'string' && s.name ? s.name.slice(0, 100) : path.basename(s.dir),
           repo: normalizeRepo(s.repo),
           dir: s.dir,
-          palette: Number.isInteger(s.palette) && (s.palette as number) >= 0 ? (s.palette as number) : 0,
+          source: s.source === 'local' ? 'local' : undefined, palette: Number.isInteger(s.palette) && (s.palette as number) >= 0 ? (s.palette as number) : 0,
           addedBy: typeof s.addedBy === 'string' ? s.addedBy : '?',
           addedAt: typeof s.addedAt === 'number' ? s.addedAt : Date.now(),
         });

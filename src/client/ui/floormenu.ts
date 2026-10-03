@@ -18,6 +18,8 @@ export interface FloorMenuOptions {
   elevator(): void;
   /** Up to the rooftop bar, by elevator; null on a map with no roof to go up to. */
   roof: (() => void) | null;
+  /** ⚙️ Project settings for the floor you're on. */
+  settings(floorId: string): void;
 }
 
 let current: { el: HTMLElement; close(): void } | null = null;
@@ -71,6 +73,12 @@ export function toggleFloorMenu(anchor: HTMLElement, opts: FloorMenuOptions): vo
       close();
       opts.elevator();
     });
+    const onFloor = store.floors.find((f) => f.id === store.floor);
+    const settings = onFloor ? h('button.floor-item.add', { type: 'button', role: 'menuitem', title: 'Push remote, base branch: detected, and overrides' }, h('span.floor-no', {}, '⚙️'), h('span.floor-text', {}, h('span.floor-name', {}, 'Project settings'), h('span.floor-sub', {}, onFloor.name))) : null;
+    settings?.addEventListener('click', () => {
+      close();
+      opts.settings(onFloor!.id);
+    });
     // Top floor first, the way a building's directory reads, and the roof over them.
     const items = floors.map((f, i) => item(f, i, here)).reverse();
     const onRoof = store.floor === ROOF;
@@ -87,7 +95,7 @@ export function toggleFloorMenu(anchor: HTMLElement, opts: FloorMenuOptions): vo
       close();
       opts.roof?.();
     });
-    el.replaceChildren(h('div.floor-menu-head', {}, `🏢 ${floors.length} floor${floors.length === 1 ? '' : 's'}`), ...(floors.length && opts.roof ? [roof] : []), ...items, add);
+    el.replaceChildren(h('div.floor-menu-head', {}, `🏢 ${floors.length} floor${floors.length === 1 ? '' : 's'}`), ...(floors.length && opts.roof ? [roof] : []), ...items, add, ...(settings ? [settings] : []));
   };
 
   const place = () => {
