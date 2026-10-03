@@ -1,0 +1,35 @@
+{
+  "api --hostname gl.example user": { "username": "bachir" },
+  "api --hostname gl.example projects/grp%2Fapp/labels?per_page=100": [{ "name": "bug", "color": "#d73a4a", "description": "Broken" }],
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests?state=opened&per_page=100&order_by=updated_at": [
+    { "iid": 7, "title": "Add thing", "description": "Closes #3 and #4", "state": "opened", "draft": false, "web_url": "https://gl.example/grp/app/-/merge_requests/7", "author": { "username": "worker" }, "labels": ["bug", "extra"], "source_branch": "office/a", "target_branch": "dev", "sha": "abc", "created_at": "2026-10-01T00:00:00Z", "updated_at": "2026-10-02T00:00:00Z", "head_pipeline": { "id": 99, "status": "running" } },
+    { "iid": 8, "title": "Draft: wip", "description": null, "state": "opened", "draft": true, "web_url": "https://gl.example/grp/app/-/merge_requests/8", "author": { "username": "worker" }, "labels": [], "source_branch": "office/b", "target_branch": "dev", "created_at": "", "updated_at": "" }
+  ],
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests?state=merged&per_page=30&order_by=updated_at": [
+    { "iid": 5, "title": "Old", "description": "", "state": "merged", "web_url": "u5", "author": { "username": "x" }, "labels": [], "source_branch": "s", "target_branch": "dev", "created_at": "", "updated_at": "", "head_pipeline": { "id": 1, "status": "success" } }
+  ],
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests?state=closed&per_page=20&order_by=updated_at": [],
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests/7": { "iid": 7, "title": "Add thing", "description": "Closes #3", "state": "opened", "web_url": "https://gl.example/grp/app/-/merge_requests/7", "author": { "username": "worker" }, "labels": [], "source_branch": "office/a", "target_branch": "dev", "created_at": "", "updated_at": "2026-10-02T00:00:00Z", "detailed_merge_status": "mergeable", "has_conflicts": false, "head_pipeline": { "id": 99, "status": "failed", "web_url": "https://gl.example/p/99" } },
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests/7/notes?per_page=100&sort=asc": [
+    { "id": 1, "body": "looks good", "author": { "username": "rev" }, "created_at": "t1", "system": false },
+    { "id": 2, "body": "added 1 commit", "author": { "username": "rev" }, "created_at": "t2", "system": true }
+  ],
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests/7/discussions?per_page=100": [
+    { "id": "d1", "notes": [
+      { "id": 10, "body": "why?", "author": { "username": "rev" }, "created_at": "t3", "system": false, "position": { "new_path": "a.ts", "old_path": "a.ts", "new_line": 4, "old_line": null } },
+      { "id": 11, "body": "because", "author": { "username": "worker" }, "created_at": "t4", "system": false, "position": { "new_path": "a.ts", "old_path": "a.ts", "new_line": null, "old_line": 2 } }
+    ] }
+  ],
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests/7/commits?per_page=100": [{}, {}],
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests/7/approvals": { "__stderr": "glab: 403 Forbidden" },
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests/7/diffs?per_page=100": [
+    { "old_path": "a.ts", "new_path": "a.ts", "diff": "@@ -1,2 +1,2 @@\n-old\n+new\n ctx\n", "new_file": false, "deleted_file": false, "renamed_file": false },
+    { "old_path": "b.ts", "new_path": "b.ts", "diff": "@@ -0,0 +1 @@\n+hi", "new_file": true, "deleted_file": false, "renamed_file": false }
+  ],
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests -X POST -f source_branch=office/a -f target_branch=dev -f title=T -f description=B -f remove_source_branch=true": { "iid": 9, "title": "T", "description": "B", "state": "opened", "web_url": "w9", "author": { "username": "bachir" }, "labels": [], "source_branch": "office/a", "target_branch": "dev", "created_at": "", "updated_at": "" },
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests/7/merge -X PUT -f squash=true -f should_remove_source_branch=true -f merge_when_pipeline_succeeds=true": {},
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests/7 -X PUT -f state_event=close": { "iid": 7, "source_branch": "office/a" },
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests/7/notes -X POST -f body=bye": { "id": 50, "body": "bye", "author": { "username": "bachir" }, "created_at": "t", "system": false },
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests/7 -X PUT -f add_labels=bug": {},
+  "api --hostname gl.example projects/grp%2Fapp/merge_requests?state=opened&source_branch=office%2Fa": []
+}

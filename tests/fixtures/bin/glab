@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+// Fake glab: looks its argv up in $FAKE_GLAB_FIXTURES (JSON: "args joined by spaces" → response),
+// logs every call to $FAKE_GLAB_LOG, and fails loudly on anything unrecorded.
+import fs from 'node:fs';
+const args = process.argv.slice(2);
+const key = args.join(' ');
+if (process.env.FAKE_GLAB_LOG) fs.appendFileSync(process.env.FAKE_GLAB_LOG, JSON.stringify(args) + '\n');
+const map = JSON.parse(fs.readFileSync(process.env.FAKE_GLAB_FIXTURES, 'utf8'));
+if (!(key in map)) { process.stderr.write(`fake glab: no fixture for: ${key}\n`); process.exit(1); }
+const r = map[key];
+if (r && r.__stderr) { process.stderr.write(r.__stderr + '\n'); process.exit(1); }
+process.stdout.write(JSON.stringify(r));
