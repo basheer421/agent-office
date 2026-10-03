@@ -37,7 +37,7 @@ Tick here (in the PR that does it) so the next session knows where to start. Eac
 - [x] **P1a** model + ports + cli runner + architecture tests
 - [ ] **P1b** GitHub adapter (move `github.ts`), consumers on ports (#4)
 - [ ] **P1c** protocol + client rename (`gh.*` → `cr.*` / `issues.*`, `ui/github/` → `ui/boards/`), issue ids → string (#5)
-- [ ] **P2** local projects (open folder, project config, push remote / base branch) (#6)
+- [x] **P2** local projects (open folder, project config, push remote / base branch) (#6)
 - [ ] **P3** GitLab adapter (#14)
 - [ ] **P4** ClickUp tracker (only after Bachir confirms P3 works) (#15)
 - [ ] **P5** GitLab per-person sign-in (only if asked) (#16)

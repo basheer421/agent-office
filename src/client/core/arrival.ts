@@ -14,6 +14,7 @@ import { routeAccountsMessage } from '../ui/accounts';
 import { openChangesFor, routeChangesMessage } from '../ui/changes';
 import { $, toast } from '../ui/dom';
 import { routeElevatorMessage } from '../ui/elevator';
+import { routeProjectMessage } from '../ui/projects';
 import { providerLabel } from '../ui/provider';
 import { routePullMessage } from '../ui/pull';
 import { needsSigningIn, openSignIns } from '../ui/signins';
@@ -68,6 +69,7 @@ export function installArrival(ctx: Ctx, core: CoreState, parts: ArrivalParts) {
   ctx.messages.onAny(routeAccountsMessage);
   ctx.messages.onAny(routePullMessage);
   ctx.messages.onAny(routeElevatorMessage);
+  ctx.messages.onAny(routeProjectMessage);
   ctx.messages.onAny((msg) => routeWhiteboardMessage(msg, net));
   ctx.messages.on('welcome', (msg) => {
     const { travel, maps } = parts;
