@@ -188,12 +188,3 @@ export class GitLabHost implements CodeHost {
   }
 }
 
-/** What to tell a worker about GitLab, for the prompt. */
-export function gitlabPromptHints(base: string): string {
-  return [
-    'This project is on GitLab: use `glab`, not `gh`. Merge requests are `!<n>`.',
-    '- read one: `glab mr view <n> --comments`, its diff: `glab mr diff <n>`, check it out: `glab mr checkout <n>`',
-    `- open one: \`glab mr create --fill --target-branch ${base}\``,
-    '- merge one: `glab mr merge <n>`',
-  ].join('\n');
-}

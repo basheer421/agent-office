@@ -38,7 +38,7 @@ Tick here (in the PR that does it) so the next session knows where to start. Eac
 - [x] **P1b** GitHub adapter (move `github.ts`), consumers on ports (#4, PR #30). `hosts/github/` + `trackers/github/`, `boards.ts` (board state through the ports), `ws/legacy-gh.ts` (model → `Gh*` until P1c), `github.ts` deleted, spawn allow-list empty. GitLab floors get NoHost/NoTracker with a "not yet" message until P3 wires `GitLabHost` in. Not done: the full UI live run (worker + **O** opens a PR on the fork, PR-board screenshot)
 - [x] **P1c** protocol + client rename (`gh.*` → `cr.*` / `issues.*`, `ui/github/` → `ui/boards/`), issue ids → string (#5)
 - [x] **P2** local projects (open folder, project config, push remote / base branch) (#6)
-- [ ] **P3** GitLab adapter (#14): step 1 (`hosts/gitlab/`, not wired in) + fake-glab contract test done; steps 2–6 unblocked (P1b merged: `hosts/index.ts` `hostFor`/`hostKindOf`), live steps need a scratch project
+- [x] **P3** GitLab adapter (#14): `GitLabHost` wired via `hostFor`, glab prompts, 🦊 Clone from GitLab (elevator) + ⚙️ Clone from default host, contract test, `scripts/e2e-gitlab.sh` passed on platform/crf (MR !1, into a throwaway base)
 - [ ] **P4** ClickUp tracker (only after Bachir confirms P3 works) (#15)
 - [ ] **P5** GitLab per-person sign-in (only if asked) (#16)
 

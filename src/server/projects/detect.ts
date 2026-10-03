@@ -9,6 +9,15 @@ import type { HostKind } from '../../shared/model/host.js';
 /** GitLab hostnames the office knows, unless ⚙️ says otherwise. */
 export const DEFAULT_GITLAB_HOSTS = ['gitlab.g137.io'];
 
+let known: readonly string[] = DEFAULT_GITLAB_HOSTS;
+/** The GitLab hostnames ⚙️ has now (roots.ts keeps this up to date), for picking a floor's host. */
+export function gitlabHosts(): readonly string[] {
+  return known;
+}
+export function setGitlabHosts(hosts: readonly string[]): void {
+  known = [...hosts];
+}
+
 export interface Detected {
   isGit: boolean;
   remotes: string[];

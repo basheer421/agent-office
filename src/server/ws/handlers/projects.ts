@@ -83,4 +83,4 @@ export const projectHandlers = {
     }
     ctx.sendTo(c, { t: 'project.roots', state: roots.view() });
   },
-} satisfies HandlerMap<ProjectClientMsg>;
+} satisfies HandlerMap<Exclude<ProjectClientMsg, { t: 'project.gitlabRepos' | 'project.clone' }>>;
