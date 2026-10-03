@@ -1,5 +1,7 @@
 // The one place that picks an issue tracker for a project folder. Everything else sees only IssueTracker.
 import { githubRepo, hostKindOf } from '../hosts/index.js';
+import { overrides } from '../projects/store.js';
+import { ClickUpApi, ClickUpTracker, NO_TOKEN, clickUpEnv, type ClickUpSpace } from './clickup/index.js';
 import { GitHubTracker } from './github/index.js';
 import { NoTracker } from './none.js';
 import type { IssueTracker } from './types.js';
@@ -7,9 +9,90 @@ import type { IssueTracker } from './types.js';
 export type { IssueTracker } from './types.js';
 export { Claims } from './claims.js';
 
-/** GitLab projects keep their issues elsewhere (ClickUp, P4): no issues board on them yet. */
-export const GITLAB_NO_ISSUES = "GitLab projects don't have an issues board in the office yet (ClickUp tasks come with issue #15)";
+const clickupApi = new ClickUpApi();
+/** The ClickUp spaces the office's token sees, for ⚙️ Project settings, or why there are none. */
+export async function clickUpSpaces(): Promise<{ spaces: ClickUpSpace[]; error?: string }> {
+  if (!clickUpEnv().token) return { spaces: [], error: NO_TOKEN };
+  return clickupApi.spaces().then((spaces) => ({ spaces }), (err: Error) => ({ spaces: [], error: err.message }));
+}
+
+/** GitLab projects keep their issues in ClickUp: until a space is picked, no issues board on them. */
+export const GITLAB_NO_ISSUES = "GitLab projects keep their issues in ClickUp: pick the floor's ClickUp space in ⚙️ Project settings to see its tasks here";
+
+/** The tracker a folder has without a ClickUp space: its host's issues (GitHub), else none. */
+function hostTracker(dir: string, kind: 'github' | 'gitlab' | 'none'): IssueTracker {
+  return kind === 'github' ? new GitHubTracker(githubRepo(dir)) : new NoTracker(GITLAB_NO_ISSUES);
+}
+
+/** Bumped when ⚙️ Project settings are saved, so every FloorTracker reads its space again. */
+let generation = 0;
+export function trackerChanged(): void {
+  generation++;
+}
+
+/**
+ * A floor's tracker: its ClickUp space when ⚙️ Project settings has one, else its host's. Asked
+ * again each time it's used, so picking or clearing a space takes effect on the next look.
+ */
+export class FloorTracker implements IssueTracker {
+  private fallback?: IssueTracker;
+  private clickup?: ClickUpTracker;
+  /** The space as last read, and when (reading it runs git, and kind/caps are asked often). */
+  private read = { at: 0, gen: -1, space: undefined as string | undefined };
+
+  constructor(
+    private readonly dir: string,
+    private readonly hostKind: 'github' | 'gitlab' | 'none',
+  ) {}
+
+  /** What it is right now. */
+  current(): IssueTracker {
+    const now = Date.now();
+    if (now - this.read.at > 2000 || this.read.gen !== generation) this.read = { at: now, gen: generation, space: overrides(this.dir).clickupSpace };
+    const { space } = this.read;
+    if (space) {
+      if (this.clickup?.space !== space) this.clickup = new ClickUpTracker(space);
+      return this.clickup;
+    }
+    return (this.fallback ??= hostTracker(this.dir, this.hostKind));
+  }
+
+  get kind() {
+    return this.current().kind;
+  }
+  get caps() {
+    return this.current().caps;
+  }
+  list() {
+    return this.current().list();
+  }
+  detail(id: string) {
+    return this.current().detail(id);
+  }
+  reference(...a: Parameters<IssueTracker['reference']>) {
+    return this.current().reference(...a);
+  }
+  get viewer() {
+    const t = this.current();
+    return t.viewer?.bind(t);
+  }
+  get comment() {
+    const t = this.current();
+    return t.comment?.bind(t);
+  }
+  get close() {
+    const t = this.current();
+    return t.close?.bind(t);
+  }
+  get assignSelf() {
+    const t = this.current();
+    return t.assignSelf?.bind(t);
+  }
+  get labels() {
+    return this.current().labels;
+  }
+}
 
 export function trackerFor(dir: string, kind: 'github' | 'gitlab' | 'none' = hostKindOf(dir)): IssueTracker {
-  return kind === 'github' ? new GitHubTracker(githubRepo(dir)) : new NoTracker(GITLAB_NO_ISSUES);
+  return new FloorTracker(dir, kind);
 }

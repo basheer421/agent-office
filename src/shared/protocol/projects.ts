@@ -6,6 +6,14 @@ import type { HostKind } from '../model/host.js';
 export interface ProjectOverrides {
   pushRemote?: string;
   baseBranch?: string;
+  /** The ClickUp space whose open tasks are the floor's issues (its id); none keeps the host's issues. */
+  clickupSpace?: string;
+}
+
+/** A ClickUp space ⚙️ Project settings can pick. */
+export interface ClickUpSpaceChoice {
+  id: string;
+  name: string;
 }
 
 export interface DetectedProject {
@@ -23,6 +31,9 @@ export interface DetectedProject {
 export interface ProjectConfig extends DetectedProject {
   detected: DetectedProject;
   overridden: (keyof ProjectOverrides)[];
+  clickupSpace?: string;
+  /** The spaces the office's ClickUp token sees, for picking one, or why there are none. */
+  clickup?: { spaces: ClickUpSpaceChoice[]; error?: string };
 }
 
 export interface ProjectRootsState {

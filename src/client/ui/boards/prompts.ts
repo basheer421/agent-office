@@ -3,7 +3,17 @@ import { issueRefOf } from '../../../shared/model/issue';
 import { store } from '../../state';
 import { repoUrlOf } from '../markdown';
 import type { MeetingPreset } from '../meeting';
+import { glabPrompt } from '../../../shared/glab-prompt';
+import { clickupPrompts } from '../../../shared/clickup-prompt';
 import { officePrompt } from '../prompts';
+
+/** An issue prompt in ClickUp's words, when the floor's issues are a ClickUp space; else undefined. */
+function clickup(which: keyof typeof clickupPrompts, it: Pick<Issue, 'id' | 'title'> & { ref?: string; url?: string }): string | undefined {
+  if (store.tracker.kind !== 'clickup') return undefined;
+  const v = issueVars(it);
+  const text = clickupPrompts[which]({ ref: v.ref, title: v.title, url: v.url });
+  return store.host.kind === 'gitlab' ? glabPrompt(text) : text;
+}
 
 // ---- Prompts for workers ------------------------------------------------------------------------
 
@@ -24,7 +34,7 @@ export interface BoardActions {
 
 /** The task a worker gets for an issue, from the board, a carried card or the queue (the 'issue.work' prompt). */
 export function issuePrompt(it: Pick<Issue, 'id' | 'title'> & { ref?: string; url?: string }): string {
-  return officePrompt('issue.work', issueVars(it));
+  return clickup('work', it) ?? officePrompt('issue.work', issueVars(it));
 }
 
 /**
@@ -71,6 +81,11 @@ export function pullContext(it: ChangeRequest) {
   return officePrompt('pull.ask', pullVars(it));
 }
 
+/** What a 🤝 Meeting about an issue is about, to start with. */
+export function issueMeetingPrompt(it: Pick<Issue, 'id' | 'title'>) {
+  return clickup('meeting', it) ?? officePrompt('issue.meeting', issueVars(it));
+}
+
 export function issueContext(it: Issue) {
-  return officePrompt('issue.ask', issueVars(it));
+  return clickup('ask', it) ?? officePrompt('issue.ask', issueVars(it));
 }

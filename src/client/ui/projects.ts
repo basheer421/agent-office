@@ -85,6 +85,8 @@ export function openProjectSettings(net: Net, floorId: string): void {
   const facts = h('dl');
   const remote = h('input', { type: 'text', 'aria-label': 'Push remote', spellcheck: 'false', disabled: !admin }) as HTMLInputElement;
   const base = h('input', { type: 'text', 'aria-label': 'Base branch', spellcheck: 'false', disabled: !admin }) as HTMLInputElement;
+  const space = h('select', { 'aria-label': 'ClickUp space', disabled: !admin }) as HTMLSelectElement;
+  const spaceNote = h('small.note');
   const status = h('p.note');
   const save = h('button.btn.primary', { type: 'button', disabled: !admin, title: admin ? '' : 'Only admins can change project settings' }, 'Save');
   const el = h(
@@ -98,6 +100,7 @@ export function openProjectSettings(net: Net, floorId: string): void {
       facts,
       h('label', {}, 'Push remote', remote),
       h('label', {}, 'Base branch', base),
+      h('label', {}, 'ClickUp space (its open tasks are the 📌 Issues board)', space, spaceNote),
       status,
     ),
     h('footer', {}, h('span.grow', {}, 'Esc to close'), save),
@@ -117,6 +120,12 @@ export function openProjectSettings(net: Net, floorId: string): void {
     base.placeholder = d.baseBranch ?? 'the branch the checkout is on';
     remote.value = c.overridden.includes('pushRemote') ? (c.pushRemote ?? '') : '';
     base.value = c.overridden.includes('baseBranch') ? (c.baseBranch ?? '') : '';
+    const spaces = c.clickup?.spaces ?? [];
+    const current = c.clickupSpace && !spaces.some((s) => s.id === c.clickupSpace) ? [{ id: c.clickupSpace, name: `space ${c.clickupSpace}` }] : [];
+    const none = c.host === 'gitlab' ? 'None (no issues board)' : `None (the ${c.host === 'github' ? 'GitHub' : 'host'}'s issues)`;
+    space.replaceChildren(h('option', { value: '' }, none), ...[...current, ...spaces].map((s) => h('option', { value: s.id }, s.name)));
+    space.value = c.clickupSpace ?? '';
+    spaceNote.textContent = c.clickup?.error ?? '';
   };
   const off = listen((msg) => {
     if (msg.t !== 'project.config' || msg.floor !== floorId) return;
@@ -126,7 +135,7 @@ export function openProjectSettings(net: Net, floorId: string): void {
   });
   save.addEventListener('click', () => {
     status.textContent = 'Saving…';
-    net.send({ t: 'project.configure', floor: floorId, overrides: { pushRemote: remote.value.trim() || undefined, baseBranch: base.value.trim() || undefined } });
+    net.send({ t: 'project.configure', floor: floorId, overrides: { pushRemote: remote.value.trim() || undefined, baseBranch: base.value.trim() || undefined, clickupSpace: space.value || undefined } });
   });
   openModal(el, { doing: '⚙️ in project settings', onClose: () => off() });
   net.send({ t: 'project.config', floor: floorId });

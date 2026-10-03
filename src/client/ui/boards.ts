@@ -255,6 +255,7 @@ export function openBoard(kind: 'issues' | 'pulls', net: Net, actions: BoardActi
     const caret = active instanceof HTMLInputElement ? ([active.selectionStart, active.selectionEnd] as const) : null;
     body.replaceChildren();
     if (st.error && !st.items.length) {
+      if (kind === 'issues' && store.tracker.kind === 'clickup') return void body.append(h('div.board-error', {}, `Couldn't load from ClickUp: ${st.error}`));
       body.append(h('div.board-error', {}, `Couldn't load from ${hostName()}: ${st.error}`, h('br'), h('small', {}, `The server runs \`${store.host.words.cli}\` in the project directory — make sure it is installed and authenticated (${store.host.words.cli} auth login).`)));
       return;
     }
