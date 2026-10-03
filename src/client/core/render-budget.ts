@@ -88,8 +88,14 @@ export function installRenderBudget(ctx: Ctx, parts: Pick<Parts, 'stage'>) {
   });
 
   /** Every material in the scene compiled now, off the main thread where the browser can, so a first look doesn't hitch. */
-  const warm = () =>
-    renderer.compileAsync(scene, camera).catch((err: unknown) => console.warn('shader warmup', err));
+  async function warm() {
+    try {
+      await renderer.compileAsync(scene, camera);
+    } catch (err) {
+      // Not fatal: anything left uncompiled compiles on first sight, as it always did.
+      console.error('shader warmup', err);
+    }
+  }
   void warm();
   // A floor brings its own things in: compile theirs once it's built, and redraw the shadows for them.
   store.on('floor', () => {
