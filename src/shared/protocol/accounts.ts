@@ -33,8 +33,26 @@ export interface SignInState {
 export interface SignInsState {
   claude: SignInState;
   github: SignInState;
+  /** GitLab, one sign-in per GitLab host in ⚙️ Settings (see server/gitlab-signins.ts). */
+  gitlab: GitLabSignInsState;
   /** You may use the office machine's own sign-ins instead of yours (admins). */
   office: boolean;
+}
+
+/** Your glab sign-in on one GitLab host: a personal access token you pasted. */
+export interface GitLabHostSignIn {
+  host: string;
+  status: 'ok' | 'none' | 'busy';
+  /** @username */
+  who?: string;
+  error?: string;
+}
+
+export interface GitLabSignInsState {
+  /** Your own glab, or the office machine's own (admins). */
+  how: 'login' | 'office';
+  hosts: GitLabHostSignIn[];
+  error?: string;
 }
 
 export interface AccountInfo {
@@ -119,7 +137,12 @@ export type SignInsClientMsg =
   | { t: 'signins.token'; which: SignInKind; token: string }
   /** Use the office machine's own sign-in (admins only). */
   | { t: 'signins.office'; which: SignInKind }
-  | { t: 'signins.signout'; which: SignInKind };
+  | { t: 'signins.signout'; which: SignInKind }
+  /** A GitLab personal access token for one of the office's GitLab hosts. */
+  | { t: 'signins.gitlab.token'; host: string; token: string }
+  | { t: 'signins.gitlab.signout'; host: string }
+  /** Use the office machine's own glab (admins only), or your own again. */
+  | { t: 'signins.gitlab.office'; on: boolean };
 
 export type AccountsServerMsg =
   | { t: 'team'; state: TeamState }
