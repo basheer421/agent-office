@@ -1,4 +1,4 @@
-/* Issue and PR windows, and the dialogs they open (ui/github/): the issue and PR windows and the label
+/* Issue and PR windows, and the dialogs they open (ui/boards/): the issue and PR windows and the label
    picker each import this sheet. */
 .modal.gh-window { width: min(1400px, 100%); height: min(920px, calc(100vh - 32px)); outline: none; }
 .modal.gh-window.issue { width: min(920px, 100%); }

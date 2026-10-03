@@ -95,8 +95,8 @@ const RUN: [ServerMsg, string[]][] = [
   [msg({ t: 'screen', workerId: 'w-2', cols: 80, rows: 24, lines: { 0: [['hi', 1, -1, 0]] }, full: true, cursor: [0, 0] }), ['screens']],
   [msg({ t: 'worker.remove', workerId: 'w-2' }), ['workers']],
   [msg({ t: 'worker.remove', workerId: 'f1-w1', jail: { prisoners: [{ id: 'f1-w1' }], bones: 0 } }), ['workers', 'jail']],
-  [msg({ t: 'gh.issues', state: { items: [], fetchedAt: 2, loading: false } }), ['issues']],
-  [msg({ t: 'gh.pulls', state: { items: [], fetchedAt: 2, loading: false } }), ['pulls']],
+  [msg({ t: 'issues.list', state: { items: [], fetchedAt: 2, loading: false } }), ['issues']],
+  [msg({ t: 'cr.list', state: { items: [], fetchedAt: 2, loading: false } }), ['pulls']],
   [msg({ t: 'team', state: {} }), ['team']],
   [msg({ t: 'me', me: { admin: false } }), ['me']],
   [msg({ t: 'accounts', state: {} }), ['accounts']],
@@ -229,7 +229,7 @@ test('what the browser remembers keeps its keys and shapes', () => {
 
 test("the store's keys are its state, as window.__office shows them", () => {
   // As the office had them before its store was split into slices: methods and the slices aren't among them.
-  assert.deepEqual(Object.keys(store).sort(), ['accounts', 'ball', 'cabinet', 'cabinetFrame', 'cars', 'carsAt', 'chat', 'clock', 'decor', 'dog', 'dogStart', 'drawing', 'floor', 'floorPlan', 'floors', 'ice', 'invites', 'issues', 'jail', 'jukebox', 'leaveOnMerge', 'limits', 'machine', 'map', 'me', 'meeting', 'notify', 'peers', 'profile', 'project', 'projectsDir', 'prompts', 'pulls', 'queue', 'repos', 'screens', 'services', 'signins', 'sky', 'subs', 'team', 'theme', 'upgrade', 'usage', 'whiteboard', 'workers', 'you']);
+  assert.deepEqual(Object.keys(store).sort(), ['accounts', 'ball', 'cabinet', 'cabinetFrame', 'cars', 'carsAt', 'chat', 'clock', 'decor', 'dog', 'dogStart', 'drawing', 'floor', 'floorPlan', 'floors', 'host', 'ice', 'invites', 'issues', 'jail', 'jukebox', 'leaveOnMerge', 'limits', 'machine', 'map', 'me', 'meeting', 'notify', 'peers', 'profile', 'project', 'projectsDir', 'prompts', 'pulls', 'queue', 'repos', 'screens', 'services', 'signins', 'sky', 'subs', 'team', 'theme', 'tracker', 'upgrade', 'usage', 'whiteboard', 'workers', 'you']);
 });
 
 test('a new store starts every field where it always has', async () => {
@@ -244,6 +244,8 @@ test('a new store starts every field where it always has', async () => {
     {
       you: '', peers: [], workers: [], screens: [], project: null, floors: [], floor: null, projectsDir: { dir: '', custom: false },
       repos: { list: [], loading: false, at: 0 }, issues: { items: [], fetchedAt: 0, loading: true }, pulls: { items: [], fetchedAt: 0, loading: true },
+      host: { kind: 'none', words: { crNoun: 'pull request', crShort: 'PR', refPrefix: '#', cli: 'gh' }, caps: { labels: false, reviews: false, autoMerge: false, draft: false, lineComments: false, mergeMethods: [] } },
+      tracker: { kind: 'none', caps: { comment: false, close: false, assign: false, labels: false } },
       ice: [], chat: [], invites: false, queue: { tasks: [], maxWorkers: 0 }, me: { admin: false },
       upgrade: { available: false, phase: 'idle' },
       usage: { total: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0, cost: 0, calls: 0 }, today: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0, cost: 0, calls: 0 }, day: '', pauseHiring: false },

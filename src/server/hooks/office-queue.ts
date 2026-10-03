@@ -1,7 +1,8 @@
 import type http from 'node:http';
 import { DESK_BY_ID } from '../../shared/layout.js';
 import type { Ctx } from '../office/context.js';
-import { str } from '../office/input.js';
+import { issueId, str } from '../office/input.js';
+import { issueRefOf } from '../../shared/model/issue.js';
 import { readBody, send } from '../http/util.js';
 
 /**
@@ -32,13 +33,13 @@ export async function officeQueue(ctx: Ctx, req: http.IncomingMessage, res: http
   try {
     body = JSON.parse(await readBody(req));
   } catch {
-    return send(res, 400, { error: 'Send JSON: {"title": "…", "prompt": "…", "issue": 12}' });
+    return send(res, 400, { error: 'Send JSON: {"title": "…", "prompt": "…", "issue": "12"}' });
   }
-  const issue = Number.isInteger(body?.issue) && (body.issue as number) > 0 ? (body.issue as number) : undefined;
+  const issue = issueId(body?.issue);
   // Its tasks run as whoever the board agent runs as.
   const err = floor.queue.add(str(body?.prompt, 20000), agent.name, str(body?.title, 200) || undefined, issue, undefined, undefined, undefined, floor.workers.ownerOf(agent.id));
   if (err) return send(res, 400, { error: err });
   const task = floor.queue.state().tasks.at(-1)!;
-  ctx.toastFloor(floor, `📋 The ${agent.name} queued ${issue !== undefined ? `issue #${issue}` : `“${task.title}”`}`);
+  ctx.toastFloor(floor, `📋 The ${agent.name} queued ${issue !== undefined ? `issue ${issueRefOf(issue)}` : `“${task.title}”`}`);
   send(res, 200, { ok: true, task: { id: task.id, title: task.title, status: task.status } });
 }

@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { GhPull, LeaveOnMergeState, QueueTask, WorkerInfo } from '../shared/protocol.js';
+import type { ChangeRequest } from '../shared/model/change-request.js';
+import type { LeaveOnMergeState, QueueTask, WorkerInfo } from '../shared/protocol.js';
 import { DESK_BY_ID } from '../shared/layout.js';
 import { isBusy, workerPr, type WorkerPr } from '../shared/status.js';
 
@@ -72,7 +73,7 @@ export interface Landed {
  * A worker across repositories has pull requests on other floors too (`pullsOf` has their lists):
  * none of them may be open, or opened from its desk but missing from its floor's list.
  */
-export function landedWorkers(workers: WorkerInfo[], pulls: GhPull[], tasks: QueueTask[], pullsOf?: (floor: string) => GhPull[] | undefined): Landed[] {
+export function landedWorkers(workers: WorkerInfo[], pulls: ChangeRequest[], tasks: QueueTask[], pullsOf?: (floor: string) => ChangeRequest[] | undefined): Landed[] {
   const out: Landed[] = [];
   for (const w of workers) {
     if (notLeaving(w)) continue;
@@ -100,15 +101,15 @@ export function notLeaving(w: WorkerInfo): string | undefined {
  * A worker's work, landed: a pull request of its merged and none is open (see workerPr), with the
  * heads of what merged, whatever the worker is doing now. Undefined when that isn't so.
  */
-export function landedWork(w: WorkerInfo, pulls: GhPull[], tasks: QueueTask[], pullsOf?: (floor: string) => GhPull[] | undefined): Landed | undefined {
+export function landedWork(w: WorkerInfo, pulls: ChangeRequest[], tasks: QueueTask[], pullsOf?: (floor: string) => ChangeRequest[] | undefined): Landed | undefined {
   const pr = workerPr(w, pulls, tasks);
   if (w.repos?.length) return landedAcross(w, pr, pulls, pullsOf);
   if (pr?.state !== 'merged') return undefined;
-  return { worker: w, pr: pr.number, head: pulls.find((p) => p.number === pr.number)?.headRefOid };
+  return { worker: w, pr: pr.number, head: pulls.find((p) => p.number === pr.number)?.sourceSha };
 }
 
 /** landedWorkers for a worker across repositories, whose own floor's PR, if any, is `own`. */
-function landedAcross(w: WorkerInfo, own: WorkerPr | undefined, pulls: GhPull[], pullsOf?: (floor: string) => GhPull[] | undefined): Landed | undefined {
+function landedAcross(w: WorkerInfo, own: WorkerPr | undefined, pulls: ChangeRequest[], pullsOf?: (floor: string) => ChangeRequest[] | undefined): Landed | undefined {
   if (own?.state === 'open') return undefined;
   const heads: Record<string, string | undefined> = {};
   const prs: string[] = [];
@@ -118,16 +119,16 @@ function landedAcross(w: WorkerInfo, own: WorkerPr | undefined, pulls: GhPull[],
     numbers.push(own.number);
   }
   for (const r of w.repos ?? []) {
-    const theirs = (pullsOf?.(r.floor) ?? []).filter((p) => p.number === r.pr?.number || p.headRefName === r.branch);
+    const theirs = (pullsOf?.(r.floor) ?? []).filter((p) => p.number === r.pr?.number || p.sourceBranch === r.branch);
     // Opened from its desk, but its floor doesn't list it (yet, or any more): can't tell.
     if (r.pr && !theirs.some((p) => p.number === r.pr!.number)) return undefined;
-    if (theirs.some((p) => p.state === 'OPEN' || p.state === 'DRAFT')) return undefined;
-    const merged = theirs.find((p) => p.state === 'MERGED');
+    if (theirs.some((p) => p.state === 'open' || p.state === 'draft')) return undefined;
+    const merged = theirs.find((p) => p.state === 'merged');
     if (!merged) continue;
-    heads[r.floor] = merged.headRefOid;
+    heads[r.floor] = merged.sourceSha;
     prs.push(`${r.name} #${merged.number}`);
     numbers.push(merged.number);
   }
   if (!numbers.length) return undefined;
-  return { worker: w, pr: numbers[0], head: own && pulls.find((p) => p.number === own.number)?.headRefOid, heads, prs };
+  return { worker: w, pr: numbers[0], head: own && pulls.find((p) => p.number === own.number)?.sourceSha, heads, prs };
 }

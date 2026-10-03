@@ -226,8 +226,8 @@ test('answers the signed-in routes', async () => {
     assert.equal(res.status, status);
     assert.deepEqual(await res.json(), { error });
   };
-  await bad(await get('/api/gh/pull?number=0', me), 400, 'Bad number');
-  await bad(await get('/api/gh/pull?number=3&floor=nope', me), 404, 'No such floor');
+  await bad(await get('/api/boards/cr?number=0', me), 400, 'Bad number');
+  await bad(await get('/api/boards/cr?number=3&floor=nope', me), 404, 'No such floor');
   await bad(await get('/api/docs?floor=nope', me), 404, 'No such floor');
   await bad(await get('/api/whiteboard/file?floor=nope', me), 404, 'No such floor');
   await bad(await get(`/api/whiteboard/file?floor=${floor}&id=nope`, me), 404, 'No such picture');
@@ -267,7 +267,7 @@ test('welcomes a browser and dispatches what it sends', async () => {
   assert.equal(ada?.name, 'Ada');
   assert.equal(ada?.color, '#ff8a5b');
   assert.equal(ada?.floor, floor.id);
-  assert.deepEqual(Object.keys(welcome).slice(-17), ['floor', 'project', 'workers', 'issues', 'pulls', 'queue', 'decor', 'plan', 'services', 'dog', 'ball', 'cars', 'jail', 'jukebox', 'whiteboard', 'meeting', 'cabinet']);
+  assert.deepEqual(Object.keys(welcome).slice(-19), ['floor', 'project', 'workers', 'issues', 'pulls', 'host', 'tracker', 'queue', 'decor', 'plan', 'services', 'dog', 'ball', 'cars', 'jail', 'jukebox', 'whiteboard', 'meeting', 'cabinet']);
 
   a.send({ t: 'ping', at: 42 });
   const pong = await a.take('pong');
@@ -421,12 +421,12 @@ test('settings, accounts, sign-ins and the boards answer as before', async () =>
     await warned("On the shared office password, workers run on the office's own sign-ins");
   }
 
-  a.send({ t: 'gh.merge', number: 0, method: 'squash', deleteBranch: false });
-  a.send({ t: 'gh.close', kind: 'nope', number: 3 });
-  a.send({ t: 'gh.comment', kind: 'issue', number: 3, body: '  ' });
-  assert.deepEqual(await a.take('gh.commented'), { t: 'gh.commented', kind: 'issue', number: 3, error: 'The comment is empty' });
-  a.send({ t: 'gh.labels', kind: 'pull', number: 3, add: [], remove: [''] });
-  assert.deepEqual(await a.take('gh.labeled'), { t: 'gh.labeled', kind: 'pull', number: 3, error: 'No labels to change' });
+  a.send({ t: 'cr.merge', number: 0, method: 'squash', deleteBranch: false });
+  a.send({ t: 'cr.close', number: 0 });
+  a.send({ t: 'issues.comment', id: '3', body: '  ' });
+  assert.deepEqual(await a.take('issues.commented'), { t: 'issues.commented', id: '3', error: 'The comment is empty' });
+  a.send({ t: 'labels.set', target: 'cr', id: '3', add: [], remove: [''] });
+  assert.deepEqual(await a.take('labels.changed'), { t: 'labels.changed', target: 'cr', id: '3', error: 'No labels to change' });
   a.send({ t: 'queue.add', prompt: 'x', provider: 'nope' });
   await warned('Unknown agent provider');
   a.send({ t: 'meeting.start', pattern: 'debate', prompt: 'x', roles: [], provider: 'nope' });
@@ -466,7 +466,7 @@ test('settings, accounts, sign-ins and the boards answer as before', async () =>
   // The last word: nothing else came back for any of it.
   a.send({ t: 'ping', at: 44 });
   assert.equal((await a.take('pong')).at, 44);
-  assert.deepEqual([...a.pending('toast'), ...a.pending('gh.merged'), ...a.pending('gh.closed')], []);
+  assert.deepEqual([...a.pending('toast'), ...a.pending('cr.merged'), ...a.pending('cr.closed')], []);
   a.send({ t: 'machine.limit', limit: null });
   await a.take('machine', (m) => m.state.limit === undefined);
   await a.close();

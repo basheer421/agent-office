@@ -1,10 +1,11 @@
 // The floor's task queue.
 
+import type { CrState } from '../model/change-request.js';
 import type { AgentEffort, AgentProvider } from './agents.js';
 
 export type TaskStatus = 'queued' | 'running' | 'done';
 
-/** A task on the 📋 queue whiteboard: a GitHub issue or free text, seated to a worker by itself. */
+/** A task on the 📋 queue whiteboard: an issue or free text, seated to a worker by itself. */
 export interface QueueTask {
   id: string;
   provider?: AgentProvider;
@@ -12,8 +13,8 @@ export interface QueueTask {
   model?: string;
   /** Reasoning effort requested for this task, when one was chosen (Claude only). */
   effort?: AgentEffort;
-  /** The GitHub issue it came from, when it did. */
-  issue?: number;
+  /** The issue it came from, when it did: its tracker id (GitHub's number as text). */
+  issue?: string;
   title: string;
   prompt: string;
   addedBy: string;
@@ -31,8 +32,8 @@ export interface QueueTask {
   /** How it ended: the worker finished its turn, stopped or fell asleep, was sent home, or never started. */
   outcome?: 'done' | 'exited' | 'killed' | 'failed';
   error?: string;
-  /** The pull request that closes the issue, or was opened from the worker's branch. */
-  pr?: { number: number; url: string; state: string; title: string };
+  /** The change request that closes the issue, or was opened from the worker's branch. */
+  pr?: { number: number; url: string; state: CrState; title: string };
 }
 
 export interface QueueState {
@@ -42,7 +43,7 @@ export interface QueueState {
 }
 
 export type QueueClientMsg =
-  | { t: 'queue.add'; prompt: string; title?: string; issue?: number; provider?: AgentProvider; model?: string; effort?: AgentEffort }
+  | { t: 'queue.add'; prompt: string; title?: string; issue?: string; provider?: AgentProvider; model?: string; effort?: AgentEffort }
   | { t: 'queue.remove'; taskId: string }
   /** Move a queued task up (-1) or down (+1) the queue. */
   | { t: 'queue.move'; taskId: string; delta: number }

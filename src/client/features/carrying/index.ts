@@ -3,12 +3,13 @@
  * an empty desk, a worker, the queue, the meeting room or the herald hands it over; Q puts it back.
  * Which card you hold is the office's (ctx.carrying), since so much else looks at it.
  */
-import type { AgentEffort, AgentProvider, CarriedIssue, GhIssue, WorkerInfo } from '../../../shared/protocol';
+import type { AgentEffort, AgentProvider, CarriedIssue, Issue, WorkerInfo } from '../../../shared/protocol';
 import { isAsleep } from '../../../shared/status';
+import { issueRefOf } from '../../../shared/model/issue';
 import type { Ctx, Hint } from '../../core/context';
 import { aside, key } from '../../core/hint';
 import { store } from '../../state';
-import { issuePrompt } from '../../ui/github/prompts';
+import { issuePrompt } from '../../ui/boards/prompts';
 import { closeAllModals, h, toast } from '../../ui/dom';
 import { issueMeeting, type MeetingPreset } from '../../ui/meeting';
 import { worktreePref } from '../../ui/prompt';
@@ -22,13 +23,13 @@ export interface CarryingDeps {
   /** The issues board, which leaves off the cards someone's carrying around (see features/boards). */
   boards: { cardMoved(): void };
   /** The note on the issues board you're pointing at, if any (see aimedNote in input/pointer.ts). */
-  aimedNote(): GhIssue | null;
+  aimedNote(): Issue | null;
   /** Plays the reach on your hands and your character, and shows it to everyone else. */
   reach(): void;
   /** Drops the ball, if it's in your hands (see features/basketball). */
   dropBall(): void;
   /** Hires a worker at `deskId` (see hire in features/workers/actions.ts). */
-  hire(deskId: string, prompt?: string, worktree?: boolean, provider?: AgentProvider, model?: string, effort?: AgentEffort, issue?: number, repos?: string[], via?: 'herald'): void;
+  hire(deskId: string, prompt?: string, worktree?: boolean, provider?: AgentProvider, model?: string, effort?: AgentEffort, issue?: string, repos?: string[], via?: 'herald'): void;
   /** The seat the herald sends a new worker to (see heraldSeat in features/workers/views.ts). */
   heraldSeat(): string | undefined;
   /** Seats you've just sent a worker out to from the herald, so a second goes elsewhere. */
@@ -51,22 +52,22 @@ export function installCarrying(ctx: Ctx, deps: CarryingDeps) {
   }
 
   /** ✋ in an issue's window, or E at its note on the board: its card comes off the board and into your hands. */
-  function pickUp(it: GhIssue) {
+  function pickUp(it: Issue) {
     closeAllModals();
     deps.dropBall();
     const carrying = ctx.carrying();
-    if (carrying?.issue === it.number) return;
-    if (carrying) toast(`📌 #${carrying.issue} went back on the board`);
-    setCarrying({ issue: it.number, title: it.title });
+    if (carrying?.issue === it.id) return;
+    if (carrying) toast(`📌 ${issueRefOf(carrying.issue)} went back on the board`);
+    setCarrying({ issue: it.id, title: it.title });
     ctx.sound.paper();
-    toast(`✋ You took #${it.number} off the board: take it to an empty desk, a worker or the 📋 queue and press E`);
+    toast(`✋ You took ${it.ref} off the board: take it to an empty desk, a worker or the 📋 queue and press E`);
   }
 
   /** Q, or E at the issues board: the card goes back where it came from. */
   function putBack() {
     const carrying = ctx.carrying();
     if (!carrying) return;
-    toast(`📌 #${carrying.issue} is back on the board`);
+    toast(`📌 ${issueRefOf(carrying.issue)} is back on the board`);
     setCarrying(null);
     ctx.sound.paper();
   }
@@ -85,18 +86,18 @@ export function installCarrying(ctx: Ctx, deps: CarryingDeps) {
    * the issues board takes it back (or swaps it for the `note` you point at there). False when it's none
    * of those, so E does what it always does there.
    */
-  function dropCard(it: Interactable, card: CarriedIssue, note: GhIssue | null): boolean {
+  function dropCard(it: Interactable, card: CarriedIssue, note: Issue | null): boolean {
     if (it.kind === 'issues') {
       if (note) pickUp(note);
       else putBack();
       return true;
     }
-    const prompt = issuePrompt({ number: card.issue, title: card.title });
+    const prompt = issuePrompt({ id: card.issue, title: card.title });
     if (it.kind === 'queue') {
-      if (onQueue(card.issue)) toast(`#${card.issue} is already on the queue`, 'warn');
+      if (onQueue(card.issue)) toast(`${issueRefOf(card.issue)} is already on the queue`, 'warn');
       else {
         const { provider, model, effort } = officeChoice(store.project);
-        ctx.net.send({ t: 'queue.add', prompt, title: `#${card.issue} ${card.title}`, issue: card.issue, provider, model, effort });
+        ctx.net.send({ t: 'queue.add', prompt, title: `${issueRefOf(card.issue)} ${card.title}`, issue: card.issue, provider, model, effort });
         putDown();
       }
       return true;
@@ -141,7 +142,7 @@ export function installCarrying(ctx: Ctx, deps: CarryingDeps) {
     ctx.sound.paper();
   }
 
-  function onQueue(issue: number): boolean {
+  function onQueue(issue: string): boolean {
     const t = store.taskForIssue(issue);
     return !!t && t.status !== 'done';
   }
@@ -159,7 +160,7 @@ export function installCarrying(ctx: Ctx, deps: CarryingDeps) {
   function carryHint(card: CarriedIssue, it: Interactable | null): Hint {
     const parts = (...mid: (HTMLElement | string)[]) => [h('span.title', {}, `🗂️ #${card.issue} in hand`), ...mid, key('Q', 'Put it back')];
     const aimedNote = deps.aimedNote();
-    if (it?.kind === 'issues') return aimedNote ? { k: String(aimedNote.number), parts: parts(key('E', `Swap it for #${aimedNote.number}`)) } : { k: '', parts: parts(key('E', 'Pin it back up')) };
+    if (it?.kind === 'issues') return aimedNote ? { k: aimedNote.id, parts: parts(key('E', `Swap it for ${aimedNote.ref}`)) } : { k: '', parts: parts(key('E', 'Pin it back up')) };
     if (it?.kind === 'ball') return { k: 'ball', parts: parts(aside('🏀 hands full')) };
     if (it?.kind === 'queue') {
       const on = onQueue(card.issue);

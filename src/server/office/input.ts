@@ -30,5 +30,12 @@ export function spotFrom(q: URLSearchParams): ReturnType<typeof arrivalSpot> {
   const [x, y, z, rotY] = ['x', 'y', 'z', 'rotY'].map(n);
   return Number.isFinite(x) && Number.isFinite(z) ? arrivalSpot({ x, y, z, rotY }) : undefined;
 }
-export const issueNumber = (v: unknown) => (Number.isInteger(v) && (v as number) > 0 ? (v as number) : undefined);
+/**
+ * An issue id as a browser sends it: a tracker's id is a string (GitHub's number as text, a ClickUp
+ * task id); a bare positive number from an older page is taken as GitHub's.
+ */
+export function issueId(v: unknown): string | undefined {
+  if (Number.isSafeInteger(v) && (v as number) > 0) return String(v);
+  return typeof v === 'string' && /^[\w.-]{1,64}$/.test(v) ? v : undefined;
+}
 export const COLOR_RE = /^#[0-9a-fA-F]{6}$/;

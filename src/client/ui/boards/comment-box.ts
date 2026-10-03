@@ -1,4 +1,4 @@
-import type { GhComment } from '../../../shared/protocol';
+import type { Comment } from '../../../shared/protocol';
 import type { Net } from '../../net';
 import { h } from '../dom';
 import { markdown } from '../markdown';
@@ -20,9 +20,9 @@ export interface CommentBox {
  * as that account rather than as you. The draft is kept per item until it is posted, so Esc or a
  * closed window doesn't lose it.
  */
-export function commentBox(kind: 'issue' | 'pull', number: number, itemUrl: string, net: Net, onPosted: (c: GhComment) => void): CommentBox {
+export function commentBox(kind: 'issue' | 'pull', id: string, itemUrl: string, net: Net, onPosted: (c: Comment) => void): CommentBox {
   const draftKey = `${DRAFT_KEY}${itemUrl}`;
-  const waitKey = `${kind}#${number}`;
+  const waitKey = `${kind}#${id}`;
   let busy = false;
   let timer = 0;
   const ta = h('textarea', { rows: 4, placeholder: 'Leave a comment. Markdown works; ⌘/Ctrl+Enter posts it.', 'aria-label': 'Comment' }) as HTMLTextAreaElement;
@@ -30,7 +30,7 @@ export function commentBox(kind: 'issue' | 'pull', number: number, itemUrl: stri
   const shown = h('div.gh-compose-preview.hidden');
   const write = h('button.btn.on', { type: 'button' }, 'Write');
   const preview = h('button.btn', { type: 'button' }, 'Preview');
-  const who = h('span.grow', {}, "Posts to GitHub as the office's gh account");
+  const who = h('span.grow', {}, "Posts as the office's own account");
   const post = h('button.btn.primary', { type: 'button' }, '💬 Comment');
   const result = h('div.gh-merge-result.error.hidden');
   const el = h(
@@ -86,7 +86,7 @@ export function commentBox(kind: 'issue' | 'pull', number: number, itemUrl: stri
         saveDraft();
         setPreview(false);
         onPosted(msg.comment);
-      } else fail(msg.error ?? 'GitHub did not take the comment');
+      } else fail(msg.error ?? 'The comment was not taken');
       sync();
     });
     // The office drops messages while it's disconnected, and then no answer comes.
@@ -95,7 +95,7 @@ export function commentBox(kind: 'issue' | 'pull', number: number, itemUrl: stri
       fail('No answer from the office. Reload the conversation to see whether the comment went through before posting it again.');
       sync();
     }, 45_000);
-    net.send({ t: 'gh.comment', kind, number, body });
+    net.send(kind === 'pull' ? { t: 'cr.comment', number: Number(id), body } : { t: 'issues.comment', id, body });
   };
 
   ta.addEventListener('input', () => (saveDraft(), sync()));
