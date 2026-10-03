@@ -9,10 +9,12 @@ export function graphicsSetting(get: () => Settings, change: (some: Partial<Sett
   const fps = choiceRow<FpsCap>('Frame rate', FPS_CAPS.map((c) => [c, FPS_LABELS[c]] as const), () => get().fps, (fps) => change({ fps }));
   const quality = choiceRow<Settings['quality']>('Quality', [['high', '✨ Full'], ['low', '🪶 Light']], () => get().quality, (quality) => change({ quality }));
   const weather = choiceRow<Settings['weather']>('Weather', [['live', '🌦️ Live weather'], ['calm', '☀️ Always clear']], () => get().weather, (weather) => change({ weather }));
+  const world = choiceRow<Settings['world']>('World', [['full', '🌆 Everything'], ['lite', '🏢 Building only']], () => get().world, (world) => change({ world }));
   return frame([
     fps,
     quality,
     weather,
-    h('p.setting-note', {}, 'Auto draws 30 frames a second on battery and as fast as your screen on power. Whatever you pick, the office slows to 10 after 20 seconds without a key or the mouse, and to 4 while another window has the focus. Light drops the outlines and draws one pixel per screen point, which is far easier on a laptop’s graphics. Always clear keeps the sky clear for you alone: no rain, snow or thunder to draw or hear, whatever the forecast says for everyone else.'),
+    world,
+    h('p.setting-note', {}, 'Auto draws 30 frames a second on battery and as fast as your screen on power. Whatever you pick, the office slows to 10 after 20 seconds without a key or the mouse, and to 4 while another window has the focus. Light drops the outlines and draws one pixel per screen point, which is far easier on a laptop’s graphics. Always clear keeps the sky clear for you alone: no rain, snow or thunder to draw or hear, whatever the forecast says for everyone else. Building only leaves out the city round the roof, the cars, the scenic loop, the weather and the holiday props: none of them is drawn or kept moving.'),
   ]);
 }

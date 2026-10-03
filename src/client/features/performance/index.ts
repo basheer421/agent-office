@@ -52,10 +52,10 @@ export function installPerformance(ctx: Ctx, parts: Pick<Parts, 'stage'>): Perfo
     ctx.renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 2));
   }
 
-  // Calm weather: a clear sky for you alone (the sky's preview, see Sky.show), so no rain to draw or hear.
+  // Calm weather (or the building only, see features/lite-world): a clear sky for you alone (the sky's preview, see Sky.show), so no rain to draw or hear.
   let calm = false;
   function applyWeather() {
-    const want = ctx.settings.weather === 'calm';
+    const want = ctx.settings.weather === 'calm' || ctx.settings.world === 'lite';
     if (want === calm) return;
     calm = want;
     ctx.sky.show(want ? { weather: 'clear', intensity: 0 } : {});

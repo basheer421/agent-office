@@ -55,6 +55,7 @@ import { installNeedsYou } from './features/needsyou';
 import { installPalette } from './features/palette';
 import { installPeers } from './features/peers';
 import { installRooftop } from './features/rooftop';
+import { installLiteWorld } from './features/lite-world';
 import { installSeating } from './features/seating';
 import { installSmoke } from './features/smoke';
 import { installLamplight } from './features/lamplight';
@@ -139,6 +140,7 @@ parts.bargames = installBarGames(ctx, { roof: parts.rooftop.roof, standUp, stopW
 parts.hanging = installHanging(ctx, { gallery: parts.gallery, reach });
 parts.climbing = installClimbing(ctx, { travel: (floorId, how, at) => parts.travel.travel(floorId, how, at), standUp, stopWalking });
 parts.cars = installCars(ctx, { standUp, stopWalking });
+installLiteWorld(ctx, parts);
 
 parts.travel = installTravel(ctx, core, parts);
 parts.arrival = installArrival(ctx, core, parts);
