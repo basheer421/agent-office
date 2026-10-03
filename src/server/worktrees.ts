@@ -3,6 +3,7 @@ import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { effective } from './projects/store.js';
 import type { LostBranch, WorktreeState } from '../shared/protocol.js';
 
 export type { WorktreeCleanup, WorktreeState } from '../shared/protocol.js';
@@ -60,7 +61,7 @@ export class Worktrees {
    */
   create(slug: string, sub?: string, root = this.dir): (Required<Omit<WorktreeRef, 'made'>> & { from?: string; note?: string }) | string {
     try {
-      const from = this.currentBranch();
+      const from = this.baseBranch();
       const { base, note } = this.startPoint(from);
       const rel = path.join(WORKTREES_DIR, slug, sub ?? '');
       const branch = `${BRANCH_PREFIX}${slug}`;
@@ -80,17 +81,18 @@ export class Worktrees {
   fetch(): Promise<void> | undefined {
     if (this.fetching) return this.fetching;
     if (Date.now() - this.fetchedAt < FETCH_FRESH_MS) return undefined;
-    const from = this.currentBranch();
+    const from = this.baseBranch();
+    const origin = this.remote();
     if (!from || !this.hasOrigin()) return undefined;
     // Never stop to ask for a password: there's nobody at the office's terminal to type it.
     const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
-    this.fetching = execFileP('git', ['fetch', '--quiet', '--no-tags', 'origin', from], { cwd: this.dir, env, timeout: FETCH_TIMEOUT_MS })
+    this.fetching = execFileP('git', ['fetch', '--quiet', '--no-tags', origin, from], { cwd: this.dir, env, timeout: FETCH_TIMEOUT_MS })
       .then(
         () => (this.fetchError = undefined),
         (err) => {
           // Its first complaint says what's wrong; the last line is advice about access rights.
           const why = String((err as { stderr?: string }).stderr ?? '').split('\n').find((l) => /^(fatal|error):/.test(l)) ?? gitError(err);
-          if (why !== this.fetchError) console.warn(`agent-office: couldn't fetch origin/${from} in ${this.dir}, so new worktrees start from what's here: ${why}`);
+          if (why !== this.fetchError) console.warn(`agent-office: couldn't fetch ${origin}/${from} in ${this.dir}, so new worktrees start from what's here: ${why}`);
           this.fetchError = why;
         },
       )
@@ -101,9 +103,20 @@ export class Worktrees {
     return this.fetching;
   }
 
+  /** The remote the project pushes to (⚙️ Project settings, else origin or the only one). */
+  remote(): string {
+    return effective(this.dir).pushRemote ?? 'origin';
+  }
+
+  /** The branch worktrees start from and target: ⚙️ Project settings' base branch when overridden, else the one the project is on. */
+  baseBranch(): string | undefined {
+    const cfg = effective(this.dir);
+    return cfg.overridden.includes('baseBranch') ? cfg.baseBranch : this.currentBranch();
+  }
+
   private hasOrigin(): boolean {
     try {
-      return !!this.gitSync(['remote', 'get-url', 'origin']);
+      return !!this.gitSync(['remote', 'get-url', this.remote()]);
     } catch {
       return false;
     }
@@ -119,7 +132,7 @@ export class Worktrees {
     if (!from) return { base: head };
     let remote: string;
     try {
-      remote = this.gitSync(['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${from}^{commit}`]);
+      remote = this.gitSync(['rev-parse', '--verify', '--quiet', `refs/remotes/${this.remote()}/${from}^{commit}`]);
     } catch {
       return { base: head };
     }
@@ -127,7 +140,7 @@ export class Worktrees {
     if (this.isAncestor(head, remote)) return { base: remote };
     // Both moved on: the PR goes to origin's, so start there and say what's left behind.
     const n = Number(this.gitSync(['rev-list', '--count', head, '--not', remote]));
-    return { base: remote, note: `starts from origin/${from}, without the ${n} commit${n === 1 ? '' : 's'} on ${from} that origin doesn't have` };
+    return { base: remote, note: `starts from ${this.remote()}/${from}, without the ${n} commit${n === 1 ? '' : 's'} on ${from} that origin doesn't have` };
   }
 
   private isAncestor(a: string, b: string): boolean {

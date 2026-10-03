@@ -1,3 +1,4 @@
+import { effective } from './projects/store.js';
 import { execFile } from 'node:child_process';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -315,8 +316,7 @@ export class Changes {
       if (s.pr) return `There's already a pull request for ${s.branch}: ${s.pr.url}`;
       if (s.files.some((f) => f.uncommitted)) return 'Commit the changes first';
       if (!s.ahead) return `${s.branch} has no commits that ${s.prBase} lacks`;
-      const remotes = (await git(['remote'], t.cwd)).split('\n').filter(Boolean);
-      const remote = remotes.includes('origin') ? 'origin' : remotes[0];
+      const remote = effective(t.cwd).pushRemote;
       if (!remote) return 'This project has no git remote to push to';
       await git(['push', '-u', remote, s.branch], t.cwd, 120_000, env);
       const r = await run('gh', ['pr', 'create', '--head', s.branch, '--base', s.prBase, '--title', title.trim(), '--body', body], t.cwd, 120_000, env);

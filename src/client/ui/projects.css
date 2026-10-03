@@ -1,0 +1,12 @@
+.modal.folders, .modal.project-settings { width: min(560px, 100%); }
+.folders .crumbs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; font-family: monospace; }
+.folders .crumbs button { padding: 2px 6px; }
+.folders .dir-list { display: grid; gap: 4px; max-height: 50vh; overflow: auto; }
+.folders .dir-row { display: flex; align-items: center; gap: 8px; text-align: left; }
+.folders .dir-row .grow { flex: 1; }
+.folders .badge { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: #2d6a4f; color: #fff; }
+.folders .badge.floor { background: #555; }
+.project-settings dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin: 0 0 12px; }
+.project-settings dd { margin: 0; color: #888; font-family: monospace; }
+.project-settings label { display: grid; gap: 4px; margin-bottom: 10px; }
+.project-settings .error { color: #e63946; }
