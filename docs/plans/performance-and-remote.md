@@ -76,7 +76,7 @@ What changed: the page tells the office which laptops it can see (`screens.watch
 
 | Area | `/lite` | Gap |
 |---|---|---|
-| Terminals (attach, type, phone keys, prompt box, resume, rebuild, send home) | yes | Dictation, **+ Web page** tabs |
+| Terminals (attach, type, phone keys, prompt box, resume, rebuild), send home (🏠 on the card) | yes | Dictation, **+ Web page** tabs |
 | Hiring (agent/model/effort, worktree, issue, several repos) | yes | Shared shell (**B**), desk signs (**L**) |
 | PRs / issues / queue boards, ask-a-worker, one-click PR, changes | yes | Board agents' kiosks |
 | Floors, waiting-first list, notifications, meeting room, sign-ins | yes | Open folder / clone a floor (admin) |

@@ -27,6 +27,7 @@ import { modelBadge, providerLabel } from './ui/provider';
 import { byUrgency, waitingInOrder, waitingLabel } from './nextup';
 import { askNotifyPermission, DesktopNotifier, notifyPermission, waitingOnSomeone } from './notify';
 import { repoChoices } from './shared/hiring';
+import { sendHome } from './shared/sendhome';
 // The tab title counts the workers waiting on someone, on every floor, as the 3D office's does.
 import { renderTitle } from './shared/title';
 
@@ -184,6 +185,8 @@ function workerCard(w: WorkerInfo): HTMLElement {
     ),
     // One that's asking something is answered in its terminal, where the question is.
     asleep || w.lost || w.status === 'needs_input' ? null : h('button.btn.lite-say', { type: 'button', title: `Send ${w.name} a prompt`, 'aria-label': `Send ${w.name} a prompt`, onclick: () => promptWorker(w.id) }, '✍️'),
+    // A lost one is sent home from its own dialog, which opens on tapping the card.
+    w.lost ? null : h('button.btn.lite-say', { type: 'button', title: `Send ${w.name} home`, 'aria-label': `Send ${w.name} home`, onclick: () => sendHome(w, DESK_BY_ID.get(w.deskId), (msg) => net.send(msg)) }, '🏠'),
   );
 }
 
