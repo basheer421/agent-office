@@ -31,16 +31,16 @@ You are executing `docs/plans/fork-architecture.md` (the WHY and the design). Th
 
 ## 3. Progress
 
-Tick here (in the PR that does it) so the next session knows where to start.
+Tick here (in the PR that does it) so the next session knows where to start. Each open step has its GitHub issue on the fork; perf work is tracked in issues too (see `docs/plans/performance-and-remote.md`).
 
 - [x] **P0** fork house rules
 - [x] **P1a** model + ports + cli runner + architecture tests
-- [ ] **P1b** GitHub adapter (move `github.ts`), consumers on ports
-- [ ] **P1c** protocol + client rename (`gh.*` → `cr.*` / `issues.*`, `ui/github/` → `ui/boards/`), issue ids → string
-- [ ] **P2** local projects (open folder, project config, push remote / base branch)
-- [ ] **P3** GitLab adapter
-- [ ] **P4** ClickUp tracker (only after Bachir confirms P3 works)
-- [ ] **P5** GitLab per-person sign-in (only if asked)
+- [ ] **P1b** GitHub adapter (move `github.ts`), consumers on ports (#4)
+- [ ] **P1c** protocol + client rename (`gh.*` → `cr.*` / `issues.*`, `ui/github/` → `ui/boards/`), issue ids → string (#5)
+- [ ] **P2** local projects (open folder, project config, push remote / base branch) (#6)
+- [ ] **P3** GitLab adapter (#14)
+- [ ] **P4** ClickUp tracker (only after Bachir confirms P3 works) (#15)
+- [ ] **P5** GitLab per-person sign-in (only if asked) (#16)
 
 ## 4. Phase steps
 
