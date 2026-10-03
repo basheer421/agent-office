@@ -44,6 +44,9 @@ const net = new Net(() => store.profile, () => null, true);
 const settings = loadSettings();
 const notifier = new DesktopNotifier(() => settings.notify, (id) => openWorker(id));
 
+/** No laptops are drawn here, so ask for none of their screens (each floor starts out sending them all). */
+const watchNoScreens = () => net.send({ t: 'screens.watch', workerIds: [] });
+
 /** The server version this page was loaded with. */
 let bootVersion = '';
 
@@ -60,6 +63,7 @@ net.onMessage((msg) => {
       if (!bootVersion) bootVersion = msg.version;
       else if (msg.version !== bootVersion) return location.reload();
       offTheRoof();
+      watchNoScreens();
       // After a reconnect the server has forgotten which terminal we had open, and what we're doing.
       sendDoing(true);
       const openId = openTerminalFor();
@@ -70,6 +74,7 @@ net.onMessage((msg) => {
     }
     case 'floor.enter':
       offTheRoof();
+      watchNoScreens();
       break;
     case 'toast':
       toast(msg.text, msg.level);
