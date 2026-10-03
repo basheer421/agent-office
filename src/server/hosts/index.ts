@@ -2,6 +2,9 @@
 import { execFileSync } from 'node:child_process';
 import { GitHubHost } from './github/index.js';
 import { GitHubRepo } from './github/repo.js';
+import { GitLabHost } from './gitlab/index.js';
+import { gitlabHosts } from '../projects/detect.js';
+import { effective } from '../projects/store.js';
 import { NoHost } from './none.js';
 import type { CodeHost } from './types.js';
 
@@ -20,22 +23,18 @@ export function githubRepo(dir: string): GitHubRepo {
 }
 
 /**
- * Which host a folder's remotes point at. P1b knows GitHub only: a GitLab remote gets no host
- * (P3 adds it); no remote at all stays GitHub, whose boards then say how to add one.
+ * Which host a folder's push remote points at: GitLab when its hostname is one of ⚙️'s GitLab
+ * hosts, else GitHub (no remote at all stays GitHub, whose boards then say how to add one).
  */
-export function hostKindOf(dir: string): 'github' | 'none' {
-  try {
-    const remotes = execFileSync('git', ['remote', '-v'], { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 });
-    if (remotes.trim() && !/github/i.test(remotes) && /gitlab/i.test(remotes)) return 'none';
-  } catch {
-    // not a checkout (yet): GitHub's own messages explain
-  }
-  return 'github';
+export function hostKindOf(dir: string): 'github' | 'gitlab' {
+  return effective(dir, gitlabHosts()).host === 'gitlab' ? 'gitlab' : 'github';
 }
 
-/** What a GitLab floor's boards say until P3 wires GitLabHost in. */
-export const GITLAB_NOT_YET = "GitLab projects don't have boards in the office yet (coming with GitLab support, issue #14)";
-
 export function hostFor(dir: string, kind = hostKindOf(dir)): CodeHost {
-  return kind === 'github' ? new GitHubHost(githubRepo(dir)) : new NoHost(GITLAB_NOT_YET);
+  if (kind === 'gitlab') {
+    const cfg = effective(dir, gitlabHosts());
+    if (cfg.hostname && cfg.projectPath) return new GitLabHost({ host: cfg.hostname, projectPath: cfg.projectPath, cwd: dir });
+    return new NoHost("This folder's GitLab remote isn't one the office can read");
+  }
+  return new GitHubHost(githubRepo(dir));
 }

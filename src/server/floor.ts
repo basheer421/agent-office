@@ -29,6 +29,7 @@ import { landedWork, landedWorkers, type Landed } from './leave-on-merge.js';
 import type { Ledger } from './usage.js';
 import type { Capacity } from './machine.js';
 import { officePrompt, type PromptSource } from './prompts.js';
+import { glabPrompt } from '../shared/glab-prompt.js';
 
 type ToastLevel = 'info' | 'warn' | 'error';
 
@@ -174,6 +175,10 @@ export class Floor {
       wing: () => this.plan.wing,
     });
 
+    // Before the workers: on GitLab their prompts are put in GitLab words (see hosts/gitlab/prompts.ts).
+    this.host = hostFor(def.dir);
+    const prompts: PromptSource = this.host.kind === 'gitlab' ? { text: (id) => glabPrompt(ctx.prompts.text(id)), agent: () => ctx.prompts.agent() } : ctx.prompts;
+
     this.workers = new WorkerManager(
       def.dir,
       dataDir,
@@ -209,14 +214,13 @@ export class Floor {
       },
       ctx.ledger,
       ctx.capacity,
-      ctx.prompts,
+      prompts,
       ctx.runAs,
       ctx.dshProfile,
     );
     this.workers.wing = () => this.plan.wing;
 
-    this.host = hostFor(def.dir);
-    this.tracker = trackerFor(def.dir, this.host.kind === 'github' ? 'github' : 'none');
+    this.tracker = trackerFor(def.dir, this.host.kind);
     this.boards = new Boards(
       this.host,
       this.tracker,
@@ -228,7 +232,7 @@ export class Floor {
         // A worker may have opened one from a branch it made itself, mid-turn or from a shell.
         void this.workers.syncBranches();
         for (const p of this.merges.look(this.boards.changeRequests)) {
-          ctx.toast(this, `🎉 PR #${p.number} merged: ${p.title}`);
+          ctx.toast(this, `🎉 ${this.host.words.crShort} ${this.host.words.refPrefix}${p.number} merged: ${p.title}`);
           this.merged(p.number);
         }
         this.sendLandedHome();
@@ -254,7 +258,7 @@ export class Floor {
         ctx.toast(this, '📋 The queue is empty: every task is done 🎉');
         ctx.emit(this, { t: 'gong', why: 'queue' });
       },
-      worktreeNote: () => officePrompt(ctx.prompts, 'queue.worktree'),
+      worktreeNote: () => officePrompt(prompts, 'queue.worktree'),
     });
 
     // Meetings seat their own workers round the meeting room's table and run them round by round.
@@ -282,7 +286,7 @@ export class Floor {
           const as = ctx.ghAs(owner);
           return typeof as === 'string' ? Promise.reject(new Error(as)) : Promise.resolve().then(() => this.boards.review(pr, readFileSync(file, 'utf8'), as));
         },
-        prompt: (id) => ctx.prompts.text(id),
+        prompt: (id) => prompts.text(id),
       },
     );
 
@@ -348,7 +352,7 @@ export class Floor {
       for (const landed of landedWorkers(this.workers.list(), this.boards.pulls.items, this.queue.state().tasks, pullsOf)) {
         const { worker, head, heads } = landed;
         if (!worker.repos?.length) {
-          this.goHome(worker, `PR #${landed.pr} merged`, head);
+          this.goHome(worker, `${this.host.words.crShort} ${this.host.words.refPrefix}${landed.pr} merged`, head);
           continue;
         }
         // Across repositories, one PR can merge before another repository's work even has one:

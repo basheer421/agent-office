@@ -5,7 +5,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { GitLabHost, glabCreatedBy } from '../src/server/hosts/gitlab/index.js';
+import { DEFAULT_GITLAB_HOSTS } from '../src/server/projects/detect.js';
+import { glabPrompt } from '../src/shared/glab-prompt.js';
+import { PROMPTS, PROMPT_IDS, fillPrompt } from '../src/shared/prompts.js';
 
 const fixtures = path.join(import.meta.dirname, 'fixtures');
 const log = path.join(mkdtempSync(path.join(tmpdir(), 'fake-glab-')), 'calls.jsonl');
@@ -68,4 +72,27 @@ test('recognises a worker opening its own MR', () => {
 test('words are GitLab\'s', () => {
   assert.deepEqual(host.words, { crNoun: 'merge request', crShort: 'MR', refPrefix: '!', cli: 'glab' });
   assert.deepEqual(host.caps.mergeMethods, ['merge', 'squash']);
+});
+
+test('a floor on a GitLab remote gets the GitLab host, with ⚙️\'s hosts', async () => {
+  const { hostFor } = await import('../src/server/hosts/index.js');
+  const { setGitlabHosts } = await import('../src/server/projects/detect.js');
+  const dir = mkdtempSync(path.join(tmpdir(), 'ao-gl-'));
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  execFileSync('git', ['remote', 'add', 'origin', 'git@gl.example:grp/sub/app.git'], { cwd: dir });
+  assert.equal(hostFor(dir).kind, 'github');
+  setGitlabHosts(['gl.example']);
+  try {
+    assert.equal(hostFor(dir).kind, 'gitlab');
+  } finally {
+    setGitlabHosts(DEFAULT_GITLAB_HOSTS);
+  }
+});
+
+test('every default prompt reads as GitLab with glab, no gh left', () => {
+  for (const id of PROMPT_IDS) {
+    const text = glabPrompt(fillPrompt(PROMPTS[id].text, { number: '12', repo: 'grp/app', branch: 'office/a', base: 'dev', title: 't', url: 'u', pr: '12' }));
+    assert.doesNotMatch(text, /\bgh (pr|api)\b|pull request|\bPR #/, id);
+  }
+  assert.equal(glabPrompt('Read it with `gh pr view 12 --comments` and `gh pr diff 12`.'), 'Read it with `glab mr view 12 --comments` and `glab mr diff 12`.');
 });

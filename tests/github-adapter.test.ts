@@ -68,7 +68,7 @@ function repoWith(...remotes: string[]): string {
 
 test('hostKindOf: GitHub, GitLab, no remote, and both', () => {
   assert.equal(hostKindOf(repoWith('git@github.com:o/r.git')), 'github');
-  assert.equal(hostKindOf(repoWith('git@gitlab.g137.io:g/p.git')), 'none');
+  assert.equal(hostKindOf(repoWith('git@gitlab.g137.io:g/p.git')), 'gitlab');
   assert.equal(hostKindOf(repoWith()), 'github');
   assert.equal(hostKindOf(repoWith('git@gitlab.com:g/p.git', 'https://github.com/o/r')), 'github');
 });

@@ -16,6 +16,7 @@ import { Sky } from '../sky.js';
 import { Themes } from '../theme.js';
 import { Maps } from '../maps.js';
 import { OfficePrompts } from '../prompts.js';
+import { ProjectRoots } from '../projects/roots.js';
 import { LeaveOnMerge } from '../leave-on-merge.js';
 import type { ServiceInfo, ServicesState } from '../../shared/protocol.js';
 import type { BuildingServices, Ctx, LateServices } from './context.js';
@@ -35,6 +36,8 @@ export function createServices(ctx: Ctx): BuildingServices {
   const maps = new Maps(cfg.dataDir);
   // The prompts the office writes for workers by itself, and the worker everyone starts on (⚙️ Settings).
   const configured = configuredProvider(cfg.agentCmd);
+  // The GitLab hosts ⚙️ has, before any floor picks its code host (see hosts/index.ts).
+  new ProjectRoots(cfg.dataDir);
   const prompts = new OfficePrompts(cfg.dataDir, { list: agentProviders(configured), configured }, (state) => ctx.broadcast({ t: 'prompts', state }));
   // Whether a worker whose pull request merged goes home by itself, on every floor (⚙️ Settings).
   const leaveOnMerge = new LeaveOnMerge(cfg.dataDir, (state) => ctx.broadcast({ t: 'leaveOnMerge', state }));

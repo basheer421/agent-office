@@ -4,7 +4,7 @@ import { readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { ProjectRootsState } from '../../shared/protocol/projects.js';
-import { DEFAULT_GITLAB_HOSTS } from './detect.js';
+import { DEFAULT_GITLAB_HOSTS, setGitlabHosts } from './detect.js';
 
 export const DEFAULT_ROOTS = ['~/code'];
 
@@ -36,6 +36,7 @@ export class ProjectRoots {
     } catch {
       // never set: the defaults
     }
+    setGitlabHosts(this.state.gitlabHosts);
   }
 
   get roots(): string[] {
@@ -60,6 +61,7 @@ export class ProjectRoots {
     const hosts = next.gitlabHosts?.map((x) => x.trim().toLowerCase()).filter(Boolean);
     if (hosts?.some((x) => !/^[a-z0-9.-]+(:\d+)?$/.test(x))) return 'GitLab hosts are hostnames, like gitlab.example.com';
     this.state = { roots: roots ?? this.state.roots, gitlabHosts: hosts ?? this.state.gitlabHosts };
+    setGitlabHosts(this.state.gitlabHosts);
     try {
       writeFileSync(this.file, JSON.stringify(this.state, null, 2), { mode: 0o600 });
     } catch (err) {
