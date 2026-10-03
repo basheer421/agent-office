@@ -14,6 +14,7 @@ export class NoHost implements CodeHost {
 
   async viewer(): Promise<string> { return ''; }
   async list(): Promise<ChangeRequest[]> { return []; }
+  async get(): Promise<ChangeRequest> { return unsupported(); }
   async detail(): Promise<ChangeRequestDetail> { return unsupported(); }
   async diff(): Promise<string> { return unsupported(); }
   async create(): Promise<ChangeRequest> { return unsupported(); }

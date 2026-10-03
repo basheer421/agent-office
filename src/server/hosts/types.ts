@@ -12,7 +12,8 @@ export interface Actor {
 export interface LabelOps {
   /** The repository's labels, for the picker. */
   list(): Promise<Label[]>;
-  set(n: number, add: string[], remove: string[], as?: Actor): Promise<void>;
+  /** Resolves to the labels it has now, when the host says. */
+  set(n: number, add: string[], remove: string[], as?: Actor): Promise<Label[] | void>;
 }
 
 export interface CodeHost {
@@ -23,14 +24,19 @@ export interface CodeHost {
   viewer(): Promise<string>;
   /** Open, plus recently merged and closed. */
   list(): Promise<ChangeRequest[]>;
+  /** One change request, by number (or, on hosts that take one, its URL). */
+  get(n: number | string): Promise<ChangeRequest>;
   detail(n: number): Promise<ChangeRequestDetail>;
   diff(n: number): Promise<string>;
-  create(o: { source: string; target: string; title: string; body: string }, as?: Actor): Promise<ChangeRequest>;
+  create(o: { source: string; target?: string; title: string; body: string }, as?: Actor): Promise<ChangeRequest>;
   findForBranch(branch: string): Promise<ChangeRequest | undefined>;
   comment(n: number, body: string, as?: Actor): Promise<Comment>;
   review(n: number, body: string, as?: Actor): Promise<string>;
   merge(n: number, o: MergeOptions, as?: Actor): Promise<void>;
   close(n: number, o: CloseOptions, as?: Actor): Promise<void>;
+  /** A change request's description, and replacing it (the list of a change's others across repositories). */
+  body?(n: number | string, as?: Actor): Promise<string>;
+  setBody?(n: number | string, body: string, as?: Actor): Promise<void>;
   /** Present only when caps.labels. */
   labels?: LabelOps;
   /** Recognises "I opened one myself" in a worker's shell (gh pr create / glab mr create): the URL. */
