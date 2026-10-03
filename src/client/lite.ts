@@ -15,7 +15,7 @@ import type { AgentEffort, AgentProvider, FloorInfo, WorkerInfo } from '../share
 import { $, clip, closeAllModals, doingNow, h, onDoingChange, onModalChange, openModal, readingNow, STATUS_LABEL, timeAgo, toast } from './ui/dom';
 import { openTerminal, openTerminalFor, routeTerminalMessage } from './ui/terminal';
 import { openChanges, openChangesFor, routeChangesMessage } from './ui/changes';
-import { lostWorktreeDialog, openPrompt, routeWorktreeMessage, sendHomeDialog } from './ui/prompt';
+import { chatPref, lostWorktreeDialog, openPrompt, routeWorktreeMessage, sendHomeDialog } from './ui/prompt';
 import { openBoard } from './ui/boards';
 import type { BoardActions } from './ui/boards/prompts';
 import { openPull, routePullMessage } from './ui/pull';
@@ -265,7 +265,7 @@ function promptWorker(id: string) {
 
 // ---- New work: a prompt for a worker who's here, or a new one at a free desk -------------------
 function hire(deskId: string, prompt: string, worktree: boolean, provider?: AgentProvider, model?: string, effort?: AgentEffort, repos?: string[], issue?: string) {
-  net.send({ t: 'worker.spawn', deskId, prompt, worktree, provider, model, effort, issue, repos: repos?.length ? repos : undefined });
+  net.send({ t: 'worker.spawn', deskId, prompt, worktree, provider, model, effort, issue, repos: repos?.length ? repos : undefined, chat: chatPref() || undefined });
 }
 
 /** With `issue`, the worker the prompt goes to takes that GitHub issue. */

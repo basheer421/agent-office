@@ -84,6 +84,8 @@ export interface ProviderAdapter<S = undefined, P = undefined> {
   exited?(h: WorkerHandle<S>, cwd: string): void;
   /** How it runs: in a terminal (the default), or over ACP with the office drawing its terminal (see dsh.ts). */
   transport?: 'pty' | 'acp';
+  /** It can run in chat mode instead, the office driving it over RPC and drawing its chat (see workers/rpc.ts). */
+  chat?: boolean;
   /** The sign-in a worker hired by an account needs on that account (see RunAs). */
   signIn?: 'claude';
   /**

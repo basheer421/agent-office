@@ -9,7 +9,7 @@ import type { OpenCodeStatusEvent } from './opencode.js';
 const PI_SESSION_ID = /^[A-Za-z0-9._-]{1,160}$/;
 
 /** Keep sessions per desk; do not resume another worker's most recent conversation. */
-export function piArgs(extra: string[], options: { extension: string; sessionDir: string; sessionId?: string; model?: string; effort?: AgentEffort; prompt?: string }): string[] {
+export function piArgs(extra: string[], options: { extension: string; sessionDir: string; sessionId?: string; model?: string; effort?: AgentEffort; prompt?: string; rpc?: boolean }): string[] {
   const values = new Set(['--mode', '--session', '--session-dir', '--session-id', '--fork', '--export']);
   const flags = new Set(['--print', '-p', '--continue', '-c', '--resume', '-r', '--no-session']);
   if (options.model) values.add('--model');
@@ -25,14 +25,16 @@ export function piArgs(extra: string[], options: { extension: string; sessionDir
     if ([...values].some((name) => arg.startsWith(`${name}=`))) continue;
     args.push(arg);
   }
-  args.push('--session-dir', options.sessionDir, '--extension', options.extension);
+  // In chat mode the office reads its status off the RPC events themselves: the hook extension would only say it twice.
+  args.push('--session-dir', options.sessionDir, ...(options.rpc ? ['--mode', 'rpc'] : ['--extension', options.extension]));
   // Pi doesn't write a session file until the first assistant reply. --session-id
   // resumes persisted history and also reopens an unused desk with the same id.
   if (options.sessionId) args.push('--session-id', options.sessionId);
   if (options.model) args.push('--model', options.model);
   if (options.effort) args.push('--thinking', options.effort);
   // Pi reads an argument starting with '@' as a file to include, even after --: a prompt is only ever text.
-  if (options.prompt) args.push('--', options.prompt.startsWith('@') ? ` ${options.prompt}` : options.prompt);
+  // Over RPC the first message is sent as a command once it's up (see workers/rpc.ts).
+  if (options.prompt && !options.rpc) args.push('--', options.prompt.startsWith('@') ? ` ${options.prompt}` : options.prompt);
   return args;
 }
 

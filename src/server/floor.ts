@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import type { ChangesState, FloorInfo, PeerInfo, ProjectInfo, ServerMsg, WorkerInfo } from '../shared/protocol.js';
+import type { ChangesState, ChatServerMsg, FloorInfo, PeerInfo, ProjectInfo, ServerMsg, WorkerInfo } from '../shared/protocol.js';
 import { isBusy } from '../shared/status.js';
 import { DESK_BY_ID } from '../shared/layout.js';
 import type { FloorDef } from './building.js';
@@ -57,6 +57,8 @@ export interface FloorContext {
   toast(floor: Floor, text: string, level?: ToastLevel): void;
   /** A worker's terminal output, for whoever has that terminal open. */
   termData(workerId: string, data: string, viewers: string[]): void;
+  /** A chat-mode worker's chat, to the browsers that have it open (see workers/rpc.ts). */
+  chatData(msg: ChatServerMsg, viewers: string[]): void;
   /** What a worker changed, for whoever has its Changes window open. */
   changes(state: ChangesState, clients: string[]): void;
   /** A worker on this floor changed, or left (then just its id). */
@@ -209,6 +211,7 @@ export class Floor {
           ctx.workerChanged(this, workerId);
         },
         data: (workerId, data, viewers) => ctx.termData(workerId, data, viewers),
+        chat: (msg, viewers) => ctx.chatData(msg, viewers),
         screen: (workerId, frame) => ctx.screen(this, { t: 'screen', workerId, ...frame }),
         toast: (text, level) => ctx.toast(this, text, level),
       },
