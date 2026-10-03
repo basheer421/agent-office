@@ -38,7 +38,7 @@ Tick here (in the PR that does it) so the next session knows where to start. Eac
 - [ ] **P1b** GitHub adapter (move `github.ts`), consumers on ports (#4)
 - [ ] **P1c** protocol + client rename (`gh.*` → `cr.*` / `issues.*`, `ui/github/` → `ui/boards/`), issue ids → string (#5)
 - [x] **P2** local projects (open folder, project config, push remote / base branch) (#6)
-- [ ] **P3** GitLab adapter (#14)
+- [ ] **P3** GitLab adapter (#14): step 1 (`hosts/gitlab/`, not wired in) + fake-glab contract test done; steps 2–6 wait on P1b (`hosts/index.ts`), live steps need a scratch project
 - [ ] **P4** ClickUp tracker (only after Bachir confirms P3 works) (#15)
 - [ ] **P5** GitLab per-person sign-in (only if asked) (#16)
 
