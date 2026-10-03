@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Pacer, targetFps, type PaceState } from '../src/client/features/performance/pace.js';
+import { Pacer, PIXEL_BUDGET, pixelRatioFor, targetFps, type PaceState } from '../src/client/features/performance/pace.js';
 
 // How often the office draws (features/performance/pace.ts): slower while idle, unfocused or on battery.
 
@@ -47,4 +47,14 @@ test('slowed is only said below 30, so the slow-computer check keeps working at 
   assert.equal(p.slowed, false);
   p.shouldDraw(100, { ...awake, idleMs: 30_000 });
   assert.equal(p.slowed, true);
+});
+
+test('pixel ratio: retina up to 2, within the budget, never under 1', () => {
+  assert.equal(pixelRatioFor(2, 1280, 800, false), 2);
+  assert.equal(pixelRatioFor(3, 800, 600, false), 2);
+  const r = pixelRatioFor(2, 1512, 982, false);
+  assert.ok(r < 2 && r > 1.6);
+  assert.ok(Math.abs(1512 * r * 982 * r - PIXEL_BUDGET) < 1);
+  assert.equal(pixelRatioFor(2, 5120, 2880, false), 1);
+  assert.equal(pixelRatioFor(2, 1280, 800, true), 1);
 });

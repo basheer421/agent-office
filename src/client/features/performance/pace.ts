@@ -52,3 +52,19 @@ export class Pacer {
     return true;
   }
 }
+
+/**
+ * Most pixels a frame draws at full quality: a 2560x1600 screen's worth. A Retina laptop at 2x
+ * (3024x1964 on a 14" M-series) is half as many again, every one of them drawn twice (the scene and
+ * its outlines), which is what pegs Firefox on a Mac (#28). Past this, pixels are drawn a bit bigger.
+ */
+export const PIXEL_BUDGET = 2560 * 1600;
+
+/** Device pixels per CSS pixel to draw at: one at low quality, else up to 2, within PIXEL_BUDGET. */
+export function pixelRatioFor(dpr: number, width: number, height: number, low: boolean): number {
+  if (low) return 1;
+  const want = Math.min(dpr, 2);
+  const area = width * height;
+  if (area <= 0) return want;
+  return Math.max(1, Math.min(want, Math.sqrt(PIXEL_BUDGET / area)));
+}
