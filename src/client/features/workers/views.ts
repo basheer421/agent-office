@@ -29,7 +29,7 @@ import { renderUsage } from '../../ui/usage';
 import { Worker } from '../../world/character';
 import { Drifters } from './adrift';
 import { Jail } from './jail';
-import { Laptop } from './laptop';
+import { Laptop, ScreenView } from './laptop';
 import { Arrivals, Departures } from './leaving';
 import { Sendoffs } from './sendhome';
 
@@ -288,8 +288,10 @@ export function installWorkerViews(ctx: Ctx, core: CoreState, parts: WorkerViews
   const workerPos = new THREE.Vector3();
   /** When (performance.now()) the workers' looks were last brought up to how long they've worked. */
   let agedAt = 0;
+  const screenView = new ScreenView();
   ctx.ticks.add('others', ({ dt, t, now }) => {
     const camPos = camera.position;
+    screenView.set(camera);
     // How worn out each looks, as they work on (every second or so is plenty).
     const aging = !!plan().agents.ageMinutes && now - agedAt > 1000;
     if (aging) agedAt = now;
@@ -304,7 +306,7 @@ export function installWorkerViews(ctx: Ctx, core: CoreState, parts: WorkerViews
       v.model.held = d < (v.model.held ? HOLD_LEAVE : HOLD_NEAR);
       v.model.update(dt, t);
       // A board agent's kiosk has no laptop to paint (see buildKiosk).
-      if (!desk.station) v.laptop.update(dt, store.screens.get(id), Math.hypot(desk.x - camPos.x, desk.z - camPos.z));
+      if (!desk.station) v.laptop.update(dt, store.screens.get(id), Math.hypot(desk.x - camPos.x, desk.z - camPos.z), screenView);
     }
     for (const a of parts.worlds.idleAgents()) if (a.view.vacancy.visible) a.model.update(dt, t);
     departures.update(dt, t);
