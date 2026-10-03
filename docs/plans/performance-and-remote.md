@@ -67,7 +67,7 @@ What changed: the page tells the office which laptops it can see (`screens.watch
 | 1 | **Idle throttle**: when no input for N s and nothing animating that matters, drop to 10 fps; on `blur` drop to 2–5 fps; on `visibilitychange` hidden stop | Biggest single win | S |
 | 2 | **FPS cap** setting (30 / 60 / display), default 30 on battery (`navigator.getBattery`) | ~half on 120 Hz | S |
 | 3 | **Quality setting**: pixel ratio 1, outline off | 2–4× GPU | S |
-| 4 | Screens/terminals: update a texture only when its content changed **and** it's in the camera frustum and within distance; other floors never | Removes most texture uploads | M |
+| 4 | ~~Screens/terminals: update only what's in view~~ done (#12, #13): laptops repaint only in view, the office streams only the screens a page sees (none while hidden), far laptops paint small | Halves to zeroes screen traffic per client (numbers above) | done |
 | 5 | **"Lite world" toggle**: no city/cars/weather/holiday; the building only | CPU per frame | M |
 | 6 | ~~Profile properly~~ done (#7): numbers above; `?profile` shows them live | Turns guesses into numbers | done |
 | 7 | `/lite` already exists (non-3D view): check how far it goes as the "daily driver" view | Maybe zero work | S |
