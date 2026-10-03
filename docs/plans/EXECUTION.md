@@ -35,7 +35,7 @@ Tick here (in the PR that does it) so the next session knows where to start. Eac
 
 - [x] **P0** fork house rules
 - [x] **P1a** model + ports + cli runner + architecture tests
-- [ ] **P1b** GitHub adapter (move `github.ts`), consumers on ports (#4)
+- [ ] **P1b** GitHub adapter (move `github.ts`), consumers on ports (#4). WIP commit on local `forge/github-adapter` (not pushed): `hosts/github/` (account, cli, map, repo, index), `hosts/{index,merge-watch,none,types}.ts`, `trackers/github/`, `trackers/{index,claims,types}.ts` written but untested. Left: floor board-state wrapper (refresh/relabel/claims/GhState emit) + legacy-gh mapping, move consumers off `github.ts` and delete it, empty the architecture allow-list, tests, typecheck/test/build, live GitHub check on the fork, PR closing #4
 - [ ] **P1c** protocol + client rename (`gh.*` → `cr.*` / `issues.*`, `ui/github/` → `ui/boards/`), issue ids → string (#5)
 - [ ] **P2** local projects (open folder, project config, push remote / base branch) (#6)
 - [ ] **P3** GitLab adapter (#14)
