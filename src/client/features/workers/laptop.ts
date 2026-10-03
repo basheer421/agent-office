@@ -150,6 +150,20 @@ export class ScreenView {
   }
 }
 
+/**
+ * The screen canvas's width at each distance (meters to the camera), widest first. Up close it's
+ * full size with no mipmaps: rebuilding a 1024-wide mip chain on every repaint's upload was the cost,
+ * and the screen fills enough of the view not to need them. Further off it's painted smaller (cheaper
+ * to paint and upload), with mipmaps again, which at that size cost little and stop the text
+ * shimmering. `out` is where a laptop drops to the next size down, `in` where it comes back up.
+ */
+const SIZES = [
+  { width: 1024, out: 3.2, in: 0 },
+  { width: 512, out: 8, in: 2.8 },
+  { width: 256, out: Infinity, in: 7.2 },
+];
+const ASPECT = 680 / 1024;
+
 export class Laptop {
   readonly root = new THREE.Group();
   private canvas = document.createElement('canvas');
@@ -164,16 +178,19 @@ export class Laptop {
   private screen!: THREE.Mesh;
   /** Anything else of its own to free (the tome's page). */
   private owned: THREE.Material[] = [];
+  /** Whether the camera could see the screen at the last update (see ScreenView), for asking the office for its frames. */
+  inView = true;
+  /** Which of SIZES the canvas is at. */
+  private size = 0;
 
   /** `tome`: a leather-bound book whose inside page shows the terminal, for the castle; it opens and shuts like the laptop. */
   constructor(style: 'laptop' | 'tome' = 'laptop') {
-    this.canvas.width = 1024;
-    this.canvas.height = 680;
+    this.canvas.width = SIZES[0].width;
+    this.canvas.height = Math.round(SIZES[0].width * ASPECT);
     this.ctx = this.canvas.getContext('2d')!;
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
-    this.texture.anisotropy = 8;
-    this.texture.minFilter = THREE.LinearMipmapLinearFilter;
+    this.filter();
 
     // Lid, hinged along the back edge
     this.lid.position.set(0, 0.035, -0.24);
@@ -237,7 +254,9 @@ export class Laptop {
    *  the screen is out of sight (off camera or turned away); the missed version is painted once it's back. */
   update(dt: number, screen: ScreenState | undefined, distance = 0, view?: ScreenView) {
     if (this.openT < 1) this.setLid(Math.min(1, this.openT + dt * 1.6));
-    if (view && this.drawnVersion >= 0 && !view.sees(this.screen)) return;
+    this.inView = !view || view.sees(this.screen);
+    if (this.drawnVersion >= 0 && !this.inView) return;
+    this.resize(distance);
     const version = screen ? screen.version : -1;
     const now = performance.now();
     const every = distance < 6 ? 150 : distance < 14 ? 600 : 2000;
@@ -247,6 +266,28 @@ export class Laptop {
       paintScreen(this.ctx, this.canvas.width, this.canvas.height, screen, this.placeholder, 22);
       this.texture.needsUpdate = true;
     }
+  }
+
+  /** Moves the canvas to the size for `distance` (see SIZES), to be painted afresh. */
+  private resize(distance: number) {
+    let i = this.size;
+    while (distance > SIZES[i].out) i++;
+    while (i > 0 && distance < SIZES[i].in) i--;
+    if (i === this.size) return;
+    this.size = i;
+    this.canvas.width = SIZES[i].width;
+    this.canvas.height = Math.round(SIZES[i].width * ASPECT);
+    // A texture's storage is fixed at its first upload: a new size needs a new one.
+    this.texture.dispose();
+    this.filter();
+    this.drawnVersion = -2;
+  }
+
+  private filter() {
+    const mips = this.size > 0;
+    this.texture.generateMipmaps = mips;
+    this.texture.minFilter = mips ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+    this.texture.anisotropy = mips ? 4 : 1;
   }
 
   /** Folds the lid down a little further (it snaps shut at the end); true once it's closed. */
