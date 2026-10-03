@@ -24,15 +24,16 @@ function inside(child: string, parent: string): boolean {
 
 export class ProjectRoots {
   private file: string;
-  private state: { roots: string[]; gitlabHosts: string[] } = { roots: [...DEFAULT_ROOTS], gitlabHosts: [...DEFAULT_GITLAB_HOSTS] };
+  private state: ProjectRootsState = { roots: [...DEFAULT_ROOTS], gitlabHosts: [...DEFAULT_GITLAB_HOSTS], defaultHost: 'github' };
 
   constructor(dataDir: string) {
     this.file = path.join(dataDir, 'projects-roots.json');
     try {
-      const raw = JSON.parse(readFileSync(this.file, 'utf8')) as { roots?: unknown; gitlabHosts?: unknown };
-      const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()) : undefined);
+      const raw = JSON.parse(readFileSync(this.file, 'utf8')) as { roots?: unknown; gitlabHosts?: unknown; defaultHost?: unknown };
+      const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : undefined);
       this.state.roots = strs(raw.roots) ?? this.state.roots;
       this.state.gitlabHosts = strs(raw.gitlabHosts) ?? this.state.gitlabHosts;
+      if (raw.defaultHost === 'gitlab') this.state.defaultHost = 'gitlab';
     } catch {
       // never set: the defaults
     }
@@ -48,7 +49,7 @@ export class ProjectRoots {
   }
 
   view(): ProjectRootsState {
-    return { roots: this.state.roots, gitlabHosts: this.state.gitlabHosts };
+    return { ...this.state };
   }
 
   /** Replaces either list. Returns why it can't. */
@@ -60,7 +61,9 @@ export class ProjectRoots {
     }
     const hosts = next.gitlabHosts?.map((x) => x.trim().toLowerCase()).filter(Boolean);
     if (hosts?.some((x) => !/^[a-z0-9.-]+(:\d+)?$/.test(x))) return 'GitLab hosts are hostnames, like gitlab.example.com';
-    this.state = { roots: roots ?? this.state.roots, gitlabHosts: hosts ?? this.state.gitlabHosts };
+    if (hosts && !hosts.length) return 'Keep at least one GitLab host (the default is gitlab.g137.io)';
+    const defaultHost = next.defaultHost === 'gitlab' || next.defaultHost === 'github' ? next.defaultHost : this.state.defaultHost;
+    this.state = { roots: roots ?? this.state.roots, gitlabHosts: hosts ?? this.state.gitlabHosts, defaultHost };
     setGitlabHosts(this.state.gitlabHosts);
     try {
       writeFileSync(this.file, JSON.stringify(this.state, null, 2), { mode: 0o600 });

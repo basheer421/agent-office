@@ -30,6 +30,19 @@ export interface ProjectRootsState {
   roots: string[];
   /** Hostnames whose remotes are GitLab. */
   gitlabHosts: string[];
+  /** Where ⬇️ Clone lists projects from: GitHub through gh, or the first GitLab host through glab. */
+  defaultHost: 'github' | 'gitlab';
+}
+
+/** A GitLab project the office's glab sign-in is a member of, for ⬇️ Clone. */
+export interface GitLabRepoChoice {
+  /** group/…/name */
+  path: string;
+  description?: string;
+  /** ISO time of the last activity. */
+  activityAt?: string;
+  /** Already a floor. */
+  floor?: string;
 }
 
 export interface FolderEntry {
@@ -45,10 +58,13 @@ export type ProjectClientMsg =
   | { t: 'project.open'; dir: string }
   | { t: 'project.config'; floor: string }
   | { t: 'project.configure'; floor: string; overrides: ProjectOverrides }
-  | { t: 'project.roots'; state?: Partial<ProjectRootsState> };
+  | { t: 'project.roots'; state?: Partial<ProjectRootsState> }
+  | { t: 'project.gitlabRepos'; refresh?: boolean }
+  | { t: 'project.clone'; path: string };
 
 export type ProjectServerMsg =
   | { t: 'project.listing'; path: string; parent?: string; roots: string[]; entries: FolderEntry[]; git?: boolean; error?: string }
   | { t: 'project.opened'; dir: string; floor?: string; error?: string }
   | { t: 'project.config'; floor: string; config?: ProjectConfig; error?: string }
-  | { t: 'project.roots'; state: ProjectRootsState };
+  | { t: 'project.roots'; state: ProjectRootsState }
+  | { t: 'project.gitlabRepos'; host: string; repos: GitLabRepoChoice[]; error?: string };

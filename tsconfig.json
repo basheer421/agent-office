@@ -1,0 +1,4 @@
+{
+  "//": "For editors and LSP tools, which look for tsconfig.json: the client's settings (vite's types for CSS imports). Builds and `npm run typecheck` use tsconfig.server.json and tsconfig.client.json.",
+  "extends": "./tsconfig.client.json"
+}

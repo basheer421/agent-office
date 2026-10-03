@@ -13,7 +13,7 @@ export function routeProjectMessage(msg: ServerMsg) {
   if (msg.t.startsWith('project.')) for (const fn of listeners) fn(msg);
 }
 
-function listen(fn: (msg: ServerMsg) => void) {
+export function listen(fn: (msg: ServerMsg) => void) {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }

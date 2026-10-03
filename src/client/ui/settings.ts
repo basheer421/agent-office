@@ -11,6 +11,7 @@ import { h, openModal, timeAgo } from './dom';
 import { agentFields, choiceLabel, officeChoice } from './provider';
 import { openPromptEditor, rewrittenPrompts } from './prompts';
 import { outsideSetting } from './settings-sky';
+import { cloneFromSetting } from './gitlab-clone';
 import { graphicsSetting } from './settings-graphics';
 import { choiceRow } from './settings-rows';
 
@@ -439,6 +440,7 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
 
   // What the sky's doing, and which clock it keeps (see settings-sky.ts).
   const sky = outside && outsideSetting(net, outside, (body) => setting('Outside', 'office', ...body));
+  const cloneFrom = cloneFromSetting(net, (body) => setting('Clone from', 'office', ...body));
   const account = store.me.account;
   const signOut = h('button.btn', { type: 'button' }, '🚪 Sign out');
   signOut.addEventListener('click', onSignOut);
@@ -467,6 +469,7 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
       ...(sky ? [sky.section] : []),
       dogSection,
       setting('Workspace folder', 'office', dirRow, dirActions, dirNote),
+      cloneFrom.section,
     ],
     workers: [
       setting('Default worker', 'office', agentNow, agent.element, agentActions, agentNote),
@@ -525,6 +528,7 @@ export function openSettings(net: Net, settings: Settings, onChange: (s: Setting
       offDog();
       offTheme();
       sky?.off();
+      cloneFrom.off();
       offMap();
       offLeave();
       offLimit.forEach((off) => off());

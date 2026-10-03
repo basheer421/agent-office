@@ -1,5 +1,4 @@
 // The one place that picks a code host for a project folder. Everything else sees only CodeHost.
-import { execFileSync } from 'node:child_process';
 import { GitHubHost } from './github/index.js';
 import { GitHubRepo } from './github/repo.js';
 import { GitLabHost } from './gitlab/index.js';
@@ -13,6 +12,8 @@ export { MergeWatch } from './merge-watch.js';
 // The office's own GitHub account (setup, cloning, the repo picker) and gh's account picking.
 export { authLoginHere, ghUser, parseRemote, pickAccount, repoView, spawnClone, userRepoLines, type GhAccount } from './github/account.js';
 export { ownPr } from './github/index.js';
+// The office's GitLab account (⬇️ Clone from GitLab).
+export { cloneGitlab, gitlabProject, gitlabProjects, type GitLabProject } from './gitlab/projects.js';
 
 /** One GitHubRepo per folder, so a floor's host and tracker share gh's account pick and caches. */
 const repos = new Map<string, GitHubRepo>();
