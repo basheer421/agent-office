@@ -11,7 +11,8 @@ import { TOOLS, UsageError, buildRequest, formatHome, formatLinked, formatWorker
 import { codexMcpArgs, findWorker, readHireRequest, readHomeRequest, readPrRequest, workerRow } from '../src/server/office-workers.js';
 import { ownPr } from '../src/server/workers/pr.js';
 import { notLeaving } from '../src/server/leave-on-merge.js';
-import type { GhPull, WorkerInfo } from '../src/shared/protocol.js';
+import type { WorkerInfo } from '../src/shared/protocol.js';
+import type { ChangeRequest } from '../src/shared/model/change-request.js';
 
 const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'office-workers.js');
 const ENV = { AGENT_OFFICE_HOOK_URL: 'http://127.0.0.1:4455/', AGENT_OFFICE_WORKER_ID: 'w1', AGENT_OFFICE_HOOK_TOKEN: 'tok' };
@@ -25,9 +26,10 @@ function worker(id: string, more: Partial<WorkerInfo> = {}): WorkerInfo {
   };
 }
 
-const pull = (number: number, state: string, headRefName: string, headRefOid?: string): GhPull => ({
-  number, title: `PR ${number}`, state, isDraft: false, url: `https://github.com/acme/app/pull/${number}`, author: '', labels: [], reviewDecision: '',
-  headRefName, headRefOid, baseRefName: 'main', createdAt: '', updatedAt: '', additions: 0, deletions: 0, checks: 'none', body: '', closes: [],
+const pull = (number: number, state: string, sourceBranch: string, sourceSha?: string): ChangeRequest => ({
+  number, title: `PR ${number}`, state: ({ OPEN: 'open', MERGED: 'merged', CLOSED: 'closed', DRAFT: 'draft' } as const)[state as 'OPEN'], url: `https://github.com/acme/app/pull/${number}`, author: '', labels: [], reviewDecision: '',
+  sourceBranch, sourceSha, targetBranch: 'main', createdAt: '', updatedAt: '', additions: 0, deletions: 0,
+  checks: 'none', body: '', closes: [],
 });
 
 test('parses list, hire, home, tell, pr and mcp', () => {
@@ -289,7 +291,7 @@ test('reads send-home and hire requests', () => {
 
   const providers = ['claude', 'codex'] as const;
   assert.deepEqual(readHireRequest({ prompt: ' Fix it\r\n', provider: 'codex', effort: 'high', worktree: false, desk: 'desk-3', issue: 4 }, [...providers]), {
-    prompt: 'Fix it', provider: 'codex', effort: 'high', worktree: false, desk: 'desk-3', issue: 4,
+    prompt: 'Fix it', provider: 'codex', effort: 'high', worktree: false, desk: 'desk-3', issue: '4',
   });
   assert.match(readHireRequest({}, [...providers]) as string, /prompt/);
   assert.match(readHireRequest({ prompt: 'x', provider: 'grok' }, [...providers]) as string, /provider is one of claude, codex/);

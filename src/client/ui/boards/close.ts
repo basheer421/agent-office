@@ -1,45 +1,45 @@
-import type { GhCloseReason, GhIssue, GhPull } from '../../../shared/protocol';
+import type { CloseReason, Issue, ChangeRequest } from '../../../shared/protocol';
 import type { Net } from '../../net';
 import { store, workerForPull } from '../../state';
 import { h, openModal } from '../dom';
-import { closeWaiters } from './api';
+import { closeWaiters, crNoun, crShort, idOf, refOf } from './api';
 
 // ---- Close dialog -------------------------------------------------------------------------------
 
-const REASON_LABEL: Record<GhCloseReason, string> = { completed: '✅ Completed', 'not planned': '🚫 Not planned' };
+const REASON_LABEL: Record<CloseReason, string> = { completed: '✅ Completed', 'not planned': '🚫 Not planned' };
 
 /** Closes an issue (as completed or not planned) or a PR without merging, with an optional comment. */
-export function openClose(kind: 'issue' | 'pull', it: GhIssue | GhPull, net: Net, onClosed: () => void) {
-  const key = `${kind}:${it.number}`;
-  const pull = kind === 'pull' ? (it as GhPull) : null;
-  let reason: GhCloseReason = 'completed';
+export function openClose(kind: 'issue' | 'pull', it: Issue | ChangeRequest, net: Net, onClosed: () => void) {
+  const key = `${kind}:${idOf(it)}`;
+  const pull = kind === 'pull' ? (it as ChangeRequest) : null;
+  let reason: CloseReason = 'completed';
   let busy = false;
 
   const go = h('button.btn.danger', { type: 'button' });
   const reasons = h('div.seg');
   const renderReasons = () => {
-    reasons.replaceChildren(...(Object.keys(REASON_LABEL) as GhCloseReason[]).map((r) => h('button.btn', { type: 'button', class: r === reason ? 'on' : '', onclick: () => ((reason = r), renderReasons()) }, REASON_LABEL[r])));
-    go.textContent = pull ? '🚫 Close pull request' : `${reason === 'completed' ? '✔️' : '🚫'} Close as ${reason}`;
+    reasons.replaceChildren(...(Object.keys(REASON_LABEL) as CloseReason[]).map((r) => h('button.btn', { type: 'button', class: r === reason ? 'on' : '', onclick: () => ((reason = r), renderReasons()) }, REASON_LABEL[r])));
+    go.textContent = pull ? `🚫 Close ${crNoun()}` : `${reason === 'completed' ? '✔️' : '🚫'} Close as ${reason}`;
   };
   const comment = h('textarea', { rows: 4, placeholder: 'Leave a comment (optional)', 'aria-label': 'Closing comment' }) as HTMLTextAreaElement;
   const del = h('input', { type: 'checkbox', id: 'close-del' }) as HTMLInputElement;
   const w = pull && workerForPull(store.workers.values(), pull);
   const result = h('div.gh-merge-result.hidden');
   const cancel = h('button.btn', { type: 'button' }, 'Cancel');
-  const noun = pull ? 'pull request' : 'issue';
+  const noun = pull ? crNoun() : 'issue';
 
   const el = h(
     'div.modal.gh-merge',
-    { role: 'dialog', 'aria-label': `Close ${noun} #${it.number}` },
-    h('header', {}, h('h2', {}, `${pull ? '🚫' : '✔️'} Close ${pull ? 'PR' : 'issue'} #${it.number}`)),
+    { role: 'dialog', 'aria-label': `Close ${noun} ${refOf(it)}` },
+    h('header', {}, h('h2', {}, `${pull ? '🚫' : '✔️'} Close ${pull ? crShort() : 'issue'} ${refOf(it)}`)),
     h(
       'div.body',
       {},
-      h('p.gh-merge-title', {}, it.title, pull ? h('small', {}, `${pull.headRefName} → ${pull.baseRefName}`) : null),
+      h('p.gh-merge-title', {}, it.title, pull ? h('small', {}, `${pull.sourceBranch} → ${pull.targetBranch}`) : null),
       pull
-        ? h('div.gh-status.muted', {}, h('span', {}, 'ℹ️'), `It won't be merged, and can be reopened on GitHub later.${w ? ` ${w.name} is still at a desk working on its branch.` : ''}`)
+        ? h('div.gh-status.muted', {}, h('span', {}, 'ℹ️'), `It won't be merged, and can be reopened later.${w ? ` ${w.name} is still at a desk working on its branch.` : ''}`)
         : h('label', {}, 'Why'),
-      pull ? h('label.gh-check', { for: 'close-del' }, del, `Delete ${pull.headRefName} too`) : reasons,
+      pull ? h('label.gh-check', { for: 'close-del' }, del, `Delete ${pull.sourceBranch} too`) : reasons,
       comment,
       result,
     ),
@@ -67,7 +67,9 @@ export function openClose(kind: 'issue' | 'pull', it: GhIssue | GhPull, net: Net
       modal.close();
       onClosed();
     });
-    net.send({ t: 'gh.close', kind, number: it.number, comment: comment.value.trim() || undefined, reason: pull ? undefined : reason, deleteBranch: !!pull && del.checked });
+    const text = comment.value.trim() || undefined;
+    if (pull) net.send({ t: 'cr.close', number: pull.number, comment: text, deleteBranch: del.checked });
+    else net.send({ t: 'issues.close', id: idOf(it), comment: text, reason });
   });
   setTimeout(() => comment.focus(), 30);
 }

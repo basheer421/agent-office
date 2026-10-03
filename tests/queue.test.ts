@@ -417,8 +417,8 @@ test("a queue worker that switches to a branch of its own takes its task's branc
   q.onWorker(w);
   assert.equal(q.state().tasks[0].branch, 'fix-login');
   q.onPulls([{
-    number: 242, title: 'Fix login', state: 'OPEN', isDraft: false, url: 'https://github.com/o/r/pull/242', author: '', labels: [], reviewDecision: '',
-    headRefName: 'fix-login', baseRefName: 'main', createdAt: new Date().toISOString(), updatedAt: '', additions: 0, deletions: 0, checks: 'none', body: '', closes: [],
+    number: 242, title: 'Fix login', state: 'open', url: 'https://github.com/o/r/pull/242', author: '', labels: [], reviewDecision: '',
+    sourceBranch: 'fix-login', targetBranch: 'main', createdAt: new Date().toISOString(), updatedAt: '', additions: 0, deletions: 0, checks: 'none', body: '', closes: [],
   }]);
   assert.equal(q.state().tasks[0].pr?.number, 242);
 });

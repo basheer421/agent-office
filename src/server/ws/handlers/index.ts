@@ -9,7 +9,7 @@ import { changesHandlers, changesHooks } from './changes.js';
 import { decorHandlers, decorView } from './decor.js';
 import { dogHandlers, dogView } from './dog.js';
 import { floorHandlers, projectView } from './floors.js';
-import { githubHandlers, issuesView, pullsView } from './github.js';
+import { boardsHandlers, hostView, issuesView, pullsView, trackerView } from './boards.js';
 import { jukeboxHandlers, jukeboxView } from './jukebox.js';
 import { meetingHandlers, meetingView } from './meetings.js';
 import { planHandlers, planView } from './plan.js';
@@ -35,7 +35,7 @@ export const handlers: HandlerMap<ClientMsg> = {
   ...decorHandlers,
   ...dogHandlers,
   ...floorHandlers,
-  ...githubHandlers,
+  ...boardsHandlers,
   ...jukeboxHandlers,
   ...meetingHandlers,
   ...planHandlers,
@@ -63,6 +63,8 @@ export const views: ViewPieces = {
   workers: workersView,
   issues: issuesView,
   pulls: pullsView,
+  host: hostView,
+  tracker: trackerView,
   queue: queueView,
   decor: decorView,
   plan: planView,

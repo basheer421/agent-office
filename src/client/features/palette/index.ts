@@ -110,9 +110,9 @@ export function installPalette(ctx: Ctx, parts: PaletteParts) {
       out.push(
         at('pulls', 'the PR board', {
           icon: '🔀',
-          kind: 'PR',
-          title: `#${pr.number} ${pr.title}`,
-          detail: [pr.isDraft ? 'Draft' : pr.state.toLowerCase(), pr.headRefName, pr.author].join(' · '),
+          kind: store.host.words.crShort,
+          title: `${store.host.words.refPrefix}${pr.number} ${pr.title}`,
+          detail: [pr.state === 'draft' ? 'Draft' : pr.state, pr.sourceBranch, pr.author].join(' · '),
           open: () => openPull(pr, net, actions.boardActions()),
         }),
       );
@@ -122,7 +122,7 @@ export function installPalette(ctx: Ctx, parts: PaletteParts) {
         at('issues', 'the Issues board', {
           icon: '📌',
           kind: 'Issue',
-          title: `#${issue.number} ${issue.title}`,
+          title: `${issue.ref} ${issue.title}`,
           detail: [issue.state.toLowerCase(), ...issue.labels.map((l) => l.name), issue.author].join(' · '),
           open: () => openIssue(issue, net, actions.boardActions()),
         }),

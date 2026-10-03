@@ -153,11 +153,11 @@ export interface Navigation {
 /** What has to be true before something happens for someone (office/gates.ts). */
 export interface Gates {
   /**
-   * A worker took on GitHub issue `n` (handed over from its window, or its card dropped on the desk):
-   * it moves to In progress on the board and is assigned on GitHub (see GitHub.claim), and comes off
+   * A worker took on issue `n` (its tracker id) (handed over from its window, or its card dropped on the desk):
+   * it moves to In progress on the board and is assigned on the tracker (see Boards.claim), and comes off
    * the queue so nobody else is seated for it.
    */
-  takeIssue(c: Client, floor: Floor, n: number): void;
+  takeIssue(c: Client, floor: Floor, n: string): void;
   /**
    * Runs `go` once `c` has a sign-in of their own to `which` (only accounts need one: on the shared
    * password it's the office's own). Without one it looks again, since they may have just signed

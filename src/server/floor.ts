@@ -76,7 +76,7 @@ export interface FloorContext {
 
 /** The open pull request on a floor's board whose head is `branch`. */
 function openPull(floor: Floor, branch: string): { number: number; url: string } | undefined {
-  const pr = floor.boards.pulls.items.find((p) => p.state === 'OPEN' && p.headRefName === branch);
+  const pr = floor.boards.pulls.items.find((p) => (p.state === 'open' || p.state === 'draft') && p.sourceBranch === branch);
   return pr ? { number: pr.number, url: pr.url } : undefined;
 }
 
@@ -218,9 +218,9 @@ export class Floor {
     this.boards = new Boards(
       this.host,
       this.tracker,
-      (state) => ctx.emit(this, { t: 'gh.issues', state }),
+      (state) => ctx.emit(this, { t: 'issues.list', state }),
       (state) => {
-        ctx.emit(this, { t: 'gh.pulls', state });
+        ctx.emit(this, { t: 'cr.list', state });
         this.queue?.onPulls(state.items);
         if (state.loading || state.error) return;
         // A worker may have opened one from a branch it made itself, mid-turn or from a shell.

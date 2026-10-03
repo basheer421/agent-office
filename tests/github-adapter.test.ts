@@ -95,7 +95,7 @@ test('boards: a label change the host does but doesn\'t answer with reads the la
     },
   }) as unknown as CodeHost;
   const boards = new Boards(host, new NoTracker(), () => {}, () => {});
-  const r = await boards.setLabels('pull', 5, ['new'], ['old']);
+  const r = await boards.setLabels('cr', '5', ['new'], ['old']);
   assert.equal(r.error, undefined);
   assert.deepEqual(r.labels, [{ name: 'new', color: '#111111' }]);
 });

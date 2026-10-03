@@ -1,15 +1,16 @@
 import './windows.css';
-import type { GhIssue, GhLabel, GhPull } from '../../../shared/protocol';
+import type { Issue, Label, ChangeRequest } from '../../../shared/protocol';
 import type { Net } from '../../net';
 import { h, openModal } from '../dom';
 import { repoUrlOf } from '../markdown';
-import { getJson, labelWaiters } from './api';
+import { crShort, getJson, idOf, labelWaiters, refOf } from './api';
+import { store } from '../../state';
 import { errorBox, spinnerRow } from './pieces';
 
 // ---- Labels -----------------------------------------------------------------------------------
 
 /** A GitHub label in its own color, with text that stays readable on dark ones. */
-export function labelChip(l: GhLabel) {
+export function labelChip(l: Label) {
   const n = parseInt(l.color.slice(1), 16);
   const lum = Number.isNaN(n) ? 1 : (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
   return h('span.label', { style: `background:${l.color};color:${lum < 0.55 ? '#fff' : 'var(--ink)'}` }, l.name);
@@ -19,13 +20,13 @@ export function labelChip(l: GhLabel) {
  * Picks an issue's or PR's labels from the repo's own, like GitHub's sidebar: tick them on and off,
  * then save, and the office's gh account adds and takes off the difference.
  */
-export function openLabels(kind: 'issue' | 'pull', it: GhIssue | GhPull, net: Net, onSaved?: (labels: GhLabel[]) => void) {
-  const key = `${kind}:${it.number}`;
+export function openLabels(kind: 'issue' | 'pull', it: Issue | ChangeRequest, net: Net, onSaved?: (labels: Label[]) => void) {
+  const key = `${kind}:${idOf(it)}`;
   const had = new Set(it.labels.map((l) => l.name));
   const on = new Set(had);
-  const noun = kind === 'pull' ? 'PR' : 'issue';
+  const noun = kind === 'pull' ? crShort() : 'issue';
   const manage = `${repoUrlOf(it.url)}/labels`;
-  let repo: GhLabel[] | null = null;
+  let repo: Label[] | null = null;
   let error = '';
   let busy = false;
   let timer = 0;
@@ -41,8 +42,8 @@ export function openLabels(kind: 'issue' | 'pull', it: GhIssue | GhPull, net: Ne
   const save = h('button.btn.primary', { type: 'button' }, '🏷️ Save labels');
   const el = h(
     'div.modal.gh-merge.gh-labeler',
-    { role: 'dialog', 'aria-label': `Labels on ${noun} #${it.number}` },
-    h('header', {}, h('h2', {}, `🏷️ Labels on ${noun} #${it.number}`)),
+    { role: 'dialog', 'aria-label': `Labels on ${noun} ${refOf(it)}` },
+    h('header', {}, h('h2', {}, `🏷️ Labels on ${noun} ${refOf(it)}`)),
     h('div.body', {}, h('p.gh-merge-title', {}, it.title), filter, list, none, result),
     h('footer', {}, summary, cancel, save),
   );
@@ -68,7 +69,7 @@ export function openLabels(kind: 'issue' | 'pull', it: GhIssue | GhPull, net: Ne
     if (empty)
       none.replaceChildren(q ? `No labels match “${filter.value.trim()}”. ` : 'This repository has no labels yet. ', h('a', { href: manage, target: '_blank', rel: 'noopener noreferrer' }, 'Make one on GitHub ↗'));
   };
-  const row = (l: GhLabel) => {
+  const row = (l: Label) => {
     const box = h('input', { type: 'checkbox' }) as HTMLInputElement;
     box.checked = on.has(l.name);
     box.addEventListener('change', () => {
@@ -83,7 +84,7 @@ export function openLabels(kind: 'issue' | 'pull', it: GhIssue | GhPull, net: Ne
   const render = () => {
     rows.clear();
     // The ones it has first, then the rest, each A to Z. Worked out once, so a row never jumps away from the pointer.
-    const byName = (a: GhLabel, b: GhLabel) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    const byName = (a: Label, b: Label) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     const known = new Map((repo ?? []).map((l) => [l.name, l]));
     const mine = it.labels.map((l) => known.get(l.name) ?? l).sort(byName);
     const rest = (repo ?? []).filter((l) => !had.has(l.name)).sort(byName);
@@ -97,7 +98,7 @@ export function openLabels(kind: 'issue' | 'pull', it: GhIssue | GhPull, net: Ne
     error = '';
     repo = null;
     render();
-    getJson<GhLabel[]>('/api/gh/labels')
+    getJson<Label[]>('/api/boards/labels')
       .then((l) => (repo = l))
       .catch((err) => (error = (err as Error).message))
       .finally(render);
@@ -117,11 +118,11 @@ export function openLabels(kind: 'issue' | 'pull', it: GhIssue | GhPull, net: Ne
     if (busy || (!add.length && !remove.length)) return;
     busy = true;
     result.className = 'gh-merge-result';
-    result.replaceChildren(h('span.spinner'), 'Saving the labels on GitHub…');
+    result.replaceChildren(h('span.spinner'), 'Saving the labels…');
     sync();
     labelWaiters.set(key, (msg) => {
       settle();
-      if (!msg.labels) return fail(msg.error ?? 'GitHub did not take the labels');
+      if (!msg.labels) return fail(msg.error ?? 'The labels were not taken');
       modal.close();
       onSaved?.(msg.labels);
     });
@@ -130,7 +131,7 @@ export function openLabels(kind: 'issue' | 'pull', it: GhIssue | GhPull, net: Ne
       settle();
       fail('No answer from the office. Look at the board to see whether the labels changed before saving again.');
     }, 45_000);
-    net.send({ t: 'gh.labels', kind, number: it.number, add, remove });
+    net.send({ t: 'labels.set', target: kind === 'pull' ? 'cr' : 'issue', id: idOf(it), add, remove });
   };
 
   filter.addEventListener('input', applyFilter);
@@ -150,7 +151,9 @@ export function openLabels(kind: 'issue' | 'pull', it: GhIssue | GhPull, net: Ne
 }
 
 /** The button that opens the label picker, after an issue's or PR's labels. */
-export function labelButton(kind: 'issue' | 'pull', it: () => GhIssue | GhPull, net: Net, onSaved: (labels: GhLabel[]) => void) {
+export function labelButton(kind: 'issue' | 'pull', it: () => Issue | ChangeRequest, net: Net, onSaved: (labels: Label[]) => void) {
+  // Hidden where the floor's host or tracker has no labels to set.
+  if (!(kind === 'pull' ? store.host.caps.labels : store.tracker.caps.labels)) return null;
   const has = it().labels.length > 0;
   return h('button.btn.gh-label-edit', { type: 'button', title: 'Change the labels', 'aria-label': 'Change the labels', onclick: () => openLabels(kind, it(), net, onSaved) }, has ? '🏷️ Edit' : '🏷️ Add labels');
 }

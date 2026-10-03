@@ -96,7 +96,7 @@ export function installGong(ctx: Ctx, deps: GongDeps) {
       const density = Math.min(CONFETTI_DENSITY, CONFETTI_MOST / Math.max(1, area));
       for (const r of world.rain) confetti.rain(r.area, floorArea(r.area) * density, 3, r.top);
       const it = store.pulls.items.find((p) => p.number === pr);
-      const w = pr === undefined ? undefined : workerForPull(store.workers.values(), it ?? { number: pr, headRefName: '' });
+      const w = pr === undefined ? undefined : workerForPull(store.workers.values(), it ?? { number: pr, sourceBranch: '' });
       if (w && deps.workerViews.has(w.id)) deps.burstOver(w.deskId, 220);
       else confetti.burst(top.x, top.y, top.z, 220);
       danceParty();

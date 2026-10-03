@@ -1,5 +1,5 @@
-import type { GhComment } from '../../../shared/protocol';
-import { AVATAR_COLORS } from '../../state';
+import type { Comment } from '../../../shared/protocol';
+import { AVATAR_COLORS, store } from '../../state';
 import { h, timeAgo } from '../dom';
 import { markdown } from '../markdown';
 
@@ -23,7 +23,7 @@ export const REVIEW_BADGE: Record<string, [string, string]> = {
   DISMISSED: ['review dismissed', 'muted'],
 };
 
-export function commentCard(c: GhComment, itemUrl: string, verb: string, badge?: [string, string]) {
+export function commentCard(c: Comment, itemUrl: string, verb: string, badge?: [string, string]) {
   return h(
     'article.gh-card',
     { class: badge?.[1] ? `is-${badge[1]}` : '' },
@@ -42,11 +42,24 @@ export function spinnerRow(text: string) {
 }
 
 export function errorBox(text: string, retry?: () => void) {
-  return h('div.gh-error', {}, `Couldn't load from GitHub: ${text}`, retry ? h('button.btn', { type: 'button', onclick: retry }, 'Try again') : null);
+  return h('div.gh-error', {}, `Couldn't load from ${hostName()}: ${text}`, retry ? h('button.btn', { type: 'button', onclick: retry }, 'Try again') : null);
 }
 
-export function stateOf(it: { state: string; isDraft?: boolean }): [string, string] {
-  if (it.state === 'MERGED') return ['merged', 'merged'];
-  if (it.state === 'CLOSED') return ['closed', 'offline'];
-  return it.isDraft ? ['draft', 'idle'] : ['open', 'working'];
+export function stateOf(it: { state: string }): [string, string] {
+  // A change request's state is the model's (draft, open, merged, closed); an issue's is its tracker's (OPEN, CLOSED).
+  const st = it.state.toLowerCase();
+  if (st === 'merged') return ['merged', 'merged'];
+  if (st === 'closed') return ['closed', 'offline'];
+  return st === 'draft' ? ['draft', 'idle'] : ['open', 'working'];
+}
+
+/** The floor's code host by name, for "Open on …" and "Couldn't load from …". */
+export function hostName(): string {
+  return store.host.kind === 'gitlab' ? 'GitLab' : store.host.kind === 'github' ? 'GitHub' : 'the code host';
+}
+
+/** A change request as people write it on this floor's host: "PR #12", "MR !7". */
+export function crRef(n: number): string {
+  const w = store.host.words;
+  return `${w.crShort} ${w.refPrefix}${n}`;
 }

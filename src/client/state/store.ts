@@ -8,8 +8,11 @@
 // server message and from each floor you arrive on. The store runs the slices in the one order they're
 // registered in (./slices/index.ts), and that order is the order their topics fire in.
 
-import type { ChatLine, FloorInfo, FloorView, GhIssue, GhPull, GhState, Me, PeerInfo, ProjectInfo, ProjectsDirState, QueueState, QueueTask, RepoChoice, Run, ServerMsg, WorkerInfo } from '../../shared/protocol';
+import type { ChatLine, FloorInfo, FloorView, Issue, ChangeRequest, BoardState, HostView, TrackerView, Me, PeerInfo, ProjectInfo, ProjectsDirState, QueueState, QueueTask, RepoChoice, Run, ServerMsg, WorkerInfo } from '../../shared/protocol';
 import { randomLook } from '../../shared/avatar';
+/** Until a floor says otherwise: GitHub's words, and nothing it can do. */
+export const NO_HOST: HostView = { kind: 'none', words: { crNoun: 'pull request', crShort: 'PR', refPrefix: '#', cli: 'gh' }, caps: { labels: false, reviews: false, autoMerge: false, draft: false, lineComments: false, mergeMethods: [] } };
+
 import { AVATAR_COLORS, type Profile } from './persist';
 
 /** A worker's terminal as its laptop shows it, put together from the office's 'screen' frames. */
@@ -84,8 +87,8 @@ function floorOf(m: ServerMsg): FloorView | undefined {
 }
 
 /** The worker whose worktree branch a pull request came from, if it is still at a desk. */
-export function workerForPull(workers: Iterable<WorkerInfo>, pr: { number: number; headRefName: string }): WorkerInfo | undefined {
-  for (const w of workers) if (w.pr?.number === pr.number || (w.worktree && w.worktree.branch === pr.headRefName)) return w;
+export function workerForPull(workers: Iterable<WorkerInfo>, pr: { number: number; sourceBranch: string }): WorkerInfo | undefined {
+  for (const w of workers) if (w.pr?.number === pr.number || (w.worktree && w.worktree.branch === pr.sourceBranch)) return w;
   return undefined;
 }
 
@@ -103,8 +106,11 @@ export class Store {
   projectsDir: ProjectsDirState = { dir: '', custom: false };
   /** The repositories the office's gh login can clone, once asked for (see floor.repos). */
   repos: { list: RepoChoice[]; error?: string; loading: boolean; at: number } = { list: [], loading: false, at: 0 };
-  issues: GhState<GhIssue> = { items: [], fetchedAt: 0, loading: true };
-  pulls: GhState<GhPull> = { items: [], fetchedAt: 0, loading: true };
+  issues: BoardState<Issue> = { items: [], fetchedAt: 0, loading: true };
+  pulls: BoardState<ChangeRequest> = { items: [], fetchedAt: 0, loading: true };
+  /** The floor's code host (what it calls a change request, what it can do) and its issue tracker. */
+  host: HostView = NO_HOST;
+  tracker: TrackerView = { kind: 'none', caps: { comment: false, close: false, assign: false, labels: false } };
   ice: RTCIceServer[] = [];
   chat: ChatLine[] = [];
   /** Whether this office can invite teammates (deployed with deploy/aws.sh). */
@@ -161,7 +167,7 @@ export class Store {
   }
 
   /** The queue task for an issue: the one on the queue if there is one, else the latest finished one. */
-  taskForIssue(issue: number): QueueTask | undefined {
+  taskForIssue(issue: string): QueueTask | undefined {
     const tasks = this.queue.tasks.filter((t) => t.issue === issue);
     return tasks.find((t) => t.status !== 'done') ?? tasks[tasks.length - 1];
   }

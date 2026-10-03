@@ -7,7 +7,7 @@ import { h, openModal, timeAgo, toast, STATUS_LABEL, type Modal } from './dom';
 import { confirmDialog } from './prompt';
 import { providerPicker } from './provider';
 import { officePrompt } from './prompts';
-import { issueVars } from './github/prompts';
+import { issueVars } from './boards/prompts';
 import { dictateField } from './dictate';
 
 /** What a meeting called from an issue, a PR or a task starts out with. */
@@ -16,7 +16,7 @@ export interface MeetingPreset {
   prompt?: string;
   title?: string;
   pr?: number;
-  issue?: number;
+  issue?: string;
 }
 
 export interface MeetingActions {
@@ -25,9 +25,10 @@ export interface MeetingActions {
   openPr(workerId: string): void;
 }
 
-/** A meeting about a GitHub issue: the form filled in with it. */
-export function issueMeeting(n: number, title: string): MeetingPreset {
-  return { issue: n, title: `#${n} ${title}`, prompt: officePrompt('issue.meeting', issueVars({ number: n, title })) };
+/** A meeting about an issue (by its id): the form filled in with it. */
+export function issueMeeting(id: string, title: string): MeetingPreset {
+  const vars = issueVars({ id, title });
+  return { issue: id, title: `${vars.ref} ${title}`, prompt: officePrompt('issue.meeting', vars) };
 }
 
 const PART_LABEL: Record<MeetingTurn['state'], string> = { waiting: '⏳ up next', sent: '📨 handed over', working: '💬 on it', done: '✅ written' };
@@ -273,7 +274,7 @@ function meetingForm(net: Net, preset: MeetingPreset | undefined, done: () => vo
 
   /** Keeps what depends on the board and the room up to date: the open PRs, and whether the room is free. */
   const refresh = () => {
-    const open = store.pulls.items.filter((p) => p.state === 'OPEN');
+    const open = store.pulls.items.filter((p) => p.state === 'open' || p.state === 'draft');
     const want = prSel.value || (preset?.pr ? String(preset.pr) : '');
     const opts: (readonly [string, string])[] = open.map((p) => [String(p.number), `#${p.number} ${p.title}`] as const);
     if (preset?.pr && !open.some((p) => p.number === preset.pr)) opts.unshift([String(preset.pr), `#${preset.pr}`]);

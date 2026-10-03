@@ -2,8 +2,8 @@ import type http from 'node:http';
 import { notLeaving } from '../leave-on-merge.js';
 import { findWorker, readHireRequest, readHomeRequest, readPrRequest, workerRow, type PullsView } from '../office-workers.js';
 import type { Floor } from '../floor.js';
-import { ghPull } from '../ws/legacy-gh.js';
 import { nextFreeSeat } from '../../shared/layout.js';
+import { issueRefOf } from '../../shared/model/issue.js';
 import type { WorkerInfo } from '../../shared/protocol.js';
 import type { Ctx } from '../office/context.js';
 import { str } from '../office/input.js';
@@ -20,14 +20,14 @@ async function pullOf(floor: Floor, n: number, repo?: string): Promise<{ number:
   let pr: { url: string; state: string } | undefined = listed;
   if (!pr) {
     try {
-      pr = ghPull(await floor.host.get(n));
+      pr = await floor.host.get(n);
     } catch (err) {
       return `No pull request #${n} here: ${(err as Error).message}`;
     }
   }
-  if (pr.state === 'CLOSED') return `PR #${n} was closed without merging`;
+  if (pr.state === 'closed') return `PR #${n} was closed without merging`;
   // The office follows the open ones and the last ones merged: an older one would look open for good.
-  if (!listed && pr.state === 'MERGED') return `PR #${n} merged too long ago for the office to follow: send the worker home by name instead`;
+  if (!listed && pr.state === 'merged') return `PR #${n} merged too long ago for the office to follow: send the worker home by name instead`;
   return { number: n, url: pr.url };
 }
 
@@ -156,13 +156,14 @@ export async function officeWorkers(ctx: Ctx, req: http.IncomingMessage, res: ht
   const owner = floor.workers.ownerOf(me.id);
   const r = floor.workers.spawn(desk, who, ask.prompt, worktree, 'agent', provider, ask.model, ask.effort, undefined, owner);
   if (typeof r === 'string') return send(res, 400, { error: r });
-  ctx.toastFloor(floor, `${who} hired ${r.name}${ask.issue ? ` for issue #${ask.issue}` : ' with a task'}`);
+  ctx.toastFloor(floor, `${who} hired ${r.name}${ask.issue ? ` for issue ${issueRefOf(ask.issue)}` : ' with a task'}`);
   if (ask.issue) {
     const n = ask.issue;
+    const ref = issueRefOf(n);
     floor.queue.dropIssue(n);
     const as = owner ? ctx.signins.ghAs(owner) : undefined;
-    if (typeof as === 'string') ctx.toastFloor(floor, `Couldn't assign issue #${n} on GitHub: ${as}`, 'warn');
-    else void floor.boards.claim(n, as).then((e) => e && ctx.toastFloor(floor, `Couldn't assign issue #${n} on GitHub: ${e}`, 'warn'));
+    if (typeof as === 'string') ctx.toastFloor(floor, `Couldn't assign issue ${ref}: ${as}`, 'warn');
+    else void floor.boards.claim(n, as).then((e) => e && ctx.toastFloor(floor, `Couldn't assign issue ${ref}: ${e}`, 'warn'));
   }
   send(res, 200, { ok: true, worker: row(r.id) });
 }

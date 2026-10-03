@@ -9,7 +9,8 @@ import type { BallState } from '../hoop.js';
 import type { JukeboxState } from '../jukebox.js';
 import type { WhiteboardView } from '../whiteboard.js';
 import type { AgentProvider } from './agents.js';
-import type { GhIssue, GhPull, GhState } from './github.js';
+import type { BoardState, HostView, TrackerView } from './boards.js';
+import type { ChangeRequest, Issue } from '../model/index.js';
 import type { MeetingState } from './meetings.js';
 import type { PeerInfo } from './presence.js';
 import type { QueueState } from './queue.js';
@@ -100,8 +101,11 @@ export interface FloorView {
   floor: string | null;
   project: ProjectInfo | null;
   workers: WorkerInfo[];
-  issues: GhState<GhIssue>;
-  pulls: GhState<GhPull>;
+  issues: BoardState<Issue>;
+  pulls: BoardState<ChangeRequest>;
+  /** The floor's code host (its words and what it can do) and issue tracker. */
+  host: HostView;
+  tracker: TrackerView;
   queue: QueueState;
   /** Pictures on this floor's walls. */
   decor: Decoration[];

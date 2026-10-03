@@ -93,6 +93,8 @@ export const floor: Slice = {
     s.screens.clear(); // fresh full frames follow
     s.issues = v.issues;
     s.pulls = v.pulls;
+    s.host = v.host;
+    s.tracker = v.tracker;
     s.queue = v.queue;
     return ['floor', 'project', 'workers', 'issues', 'pulls', 'queue'];
   },
@@ -117,11 +119,11 @@ export const floor: Slice = {
       sc.version++;
       return ['screens'];
     },
-    'gh.issues'(s, m) {
+    'issues.list'(s, m) {
       s.issues = m.state;
       return ['issues'];
     },
-    'gh.pulls'(s, m) {
+    'cr.list'(s, m) {
       s.pulls = m.state;
       return ['pulls'];
     },

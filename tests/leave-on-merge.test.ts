@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { LeaveOnMerge, landedWorkers } from '../src/server/leave-on-merge.js';
 import { Worktrees } from '../src/server/worktrees.js';
-import type { GhPull, QueueTask, WorkerInfo, WorkerStatus } from '../src/shared/protocol.js';
+import type { QueueTask, WorkerInfo, WorkerStatus } from '../src/shared/protocol.js';
+import type { ChangeRequest } from '../src/shared/model/change-request.js';
 
 function worker(id: string, status: WorkerStatus = 'done', more: Partial<WorkerInfo> = {}): WorkerInfo {
   return {
@@ -16,13 +17,13 @@ function worker(id: string, status: WorkerStatus = 'done', more: Partial<WorkerI
   };
 }
 
-const pull = (number: number, state: string, headRefName: string, headRefOid?: string): GhPull => ({
-  number, title: `PR ${number}`, state, isDraft: false, url: '', author: '', labels: [], reviewDecision: '',
-  headRefName, headRefOid, baseRefName: 'main', createdAt: '', updatedAt: '', additions: 0, deletions: 0,
+const pull = (number: number, state: string, sourceBranch: string, sourceSha?: string): ChangeRequest => ({
+  number, title: `PR ${number}`, state: ({ OPEN: 'open', MERGED: 'merged', CLOSED: 'closed', DRAFT: 'draft' } as const)[state as 'OPEN'], url: '', author: '', labels: [], reviewDecision: '',
+  sourceBranch, sourceSha, targetBranch: 'main', createdAt: '', updatedAt: '', additions: 0, deletions: 0,
   checks: 'none', body: '', closes: [],
 });
 
-const ids = (workers: WorkerInfo[], pulls: GhPull[], tasks: QueueTask[] = []) => landedWorkers(workers, pulls, tasks).map((l) => l.worker.id);
+const ids = (workers: WorkerInfo[], pulls: ChangeRequest[], tasks: QueueTask[] = []) => landedWorkers(workers, pulls, tasks).map((l) => l.worker.id);
 
 test('a worker at rest whose pull request merged goes, with the head of what merged', () => {
   const head = 'a'.repeat(40);
@@ -54,7 +55,7 @@ test('shells, board agents and the meeting table never go by pull request', () =
 });
 
 test("a queue task's merged PR counts after it drops off GitHub's list", () => {
-  const task: QueueTask = { id: 't', title: 't', prompt: 't', addedBy: 'x', addedAt: 0, status: 'done', workerId: 'a', pr: { number: 4, url: '', state: 'MERGED', title: 't' } };
+  const task: QueueTask = { id: 't', title: 't', prompt: 't', addedBy: 'x', addedAt: 0, status: 'done', workerId: 'a', pr: { number: 4, url: '', state: 'merged', title: 't' } };
   assert.deepEqual(landedWorkers([worker('a', 'done', { worktree: undefined })], [], [task]), [{ worker: worker('a', 'done', { worktree: undefined }), pr: 4, head: undefined }]);
 });
 

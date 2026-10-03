@@ -4,11 +4,12 @@
 
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { AgentEffort, AgentProvider, GhPull, QueueTask, WorkerInfo, WorkerStatus, WorktreeCleanup } from '../shared/protocol.js';
+import type { AgentEffort, AgentProvider, ChangeRequest, QueueTask, WorkerInfo, WorkerStatus, WorktreeCleanup } from '../shared/protocol.js';
 import { isAgentEffort, isAgentProvider } from '../shared/protocol.js';
 import { DESK_BY_ID, STATION_AGENT } from '../shared/layout.js';
 import { workerPr } from '../shared/status.js';
 import { landedWork, notLeaving } from './leave-on-merge.js';
+import { issueId } from './office/input.js';
 
 /** One worker as an agent sees it: enough to pick the ones to send home, and say why. */
 export interface WorkerRow {
@@ -47,10 +48,10 @@ export interface WorkerRow {
 
 /** What a floor knows about its workers' pull requests. */
 export interface PullsView {
-  pulls: GhPull[];
+  pulls: ChangeRequest[];
   tasks: QueueTask[];
   /** Another floor's pull requests, for a worker across repositories. */
-  pullsOf?: (floor: string) => GhPull[] | undefined;
+  pullsOf?: (floor: string) => ChangeRequest[] | undefined;
 }
 
 /** How long a task or activity line gets. */
@@ -139,7 +140,7 @@ export interface HireRequest {
   /** Its own git worktree; undefined leaves it to the office (yes, in a git checkout). */
   worktree?: boolean;
   desk?: string;
-  issue?: number;
+  issue?: string;
 }
 
 export function readHireRequest(body: unknown, providers: AgentProvider[]): HireRequest | string {
@@ -154,7 +155,8 @@ export function readHireRequest(body: unknown, providers: AgentProvider[]): Hire
   // Board kiosks and the meeting table seat their own: see station.prompt and meetings.ts.
   const seat = typeof b.desk === 'string' ? DESK_BY_ID.get(b.desk) : undefined;
   if (b.desk !== undefined && (!seat || seat.station || seat.room)) return "desk is a desk or bean bag's id, like desk-3";
-  if (b.issue !== undefined && !(Number.isSafeInteger(b.issue) && (b.issue as number) > 0)) return 'issue is an issue number';
+  const issue = b.issue === undefined ? undefined : issueId(b.issue);
+  if (b.issue !== undefined && !issue) return 'issue is an issue id (or number)';
   return {
     prompt,
     ...(b.provider !== undefined ? { provider: b.provider as AgentProvider } : {}),
@@ -162,7 +164,7 @@ export function readHireRequest(body: unknown, providers: AgentProvider[]): Hire
     ...(b.effort !== undefined ? { effort: b.effort as AgentEffort } : {}),
     ...(typeof b.worktree === 'boolean' ? { worktree: b.worktree } : {}),
     ...(typeof b.desk === 'string' ? { desk: b.desk } : {}),
-    ...(b.issue !== undefined ? { issue: b.issue as number } : {}),
+    ...(issue ? { issue } : {}),
   };
 }
 

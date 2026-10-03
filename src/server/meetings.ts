@@ -10,6 +10,7 @@ import { validateWorkerEffort, validateWorkerModel } from './agents.js';
 import { providerMeta, takesEffort, takesModel } from '../shared/providers.js';
 import { gitError, type WorktreeRef, type WorktreeState } from './worktrees.js';
 import { PROMPTS, fillPrompt, type PromptId, type PromptVars } from '../shared/prompts.js';
+import { issueId } from './office/input.js';
 
 const execFileP = promisify(execFile);
 
@@ -140,12 +141,11 @@ export class MeetingRoom {
       return pattern.seats.min === pattern.seats.max ? `A ${pattern.label} meeting seats ${pattern.seats.min} workers` : `A ${pattern.label} meeting seats ${pattern.seats.min} to ${pattern.seats.max} workers`;
     }
     const roles = numbered(Array.from({ length: count }, (_, i) => given[i] || pattern.roles[i] || `Worker ${i + 1}`));
-
     const pr = Number.isInteger(req.pr) && (req.pr as number) > 0 ? (req.pr as number) : undefined;
     if (pattern.needs === 'pr' && pr === undefined) return 'A review panel needs a pull request to review';
     const parts = (Array.isArray(req.parts) ? req.parts : []).map((p) => String(p ?? '').trim()).filter(Boolean).slice(0, PARTS_MAX);
     if (pattern.needs === 'parts' && parts.length < count - 1) return `List at least ${count - 1} part${count === 2 ? '' : 's'} for the mappers, one per line (or seat fewer workers)`;
-    const issue = Number.isInteger(req.issue) && (req.issue as number) > 0 ? (req.issue as number) : undefined;
+    const issue = issueId(req.issue);
     const rounds = clamp(Math.floor(Number(req.rounds) || pattern.rounds.default), pattern.rounds.min, pattern.rounds.max);
     const title = (String(req.title ?? '').replace(/\s+/g, ' ').trim() || (pr !== undefined && req.pattern === 'review' ? `Review of PR #${pr}` : firstLine(prompt))).slice(0, 100);
     const id = randomBytes(4).toString('hex');
@@ -705,7 +705,7 @@ export class MeetingRoom {
       if (Array.isArray(saved.past)) this.past = saved.past.filter((r) => r && typeof r.id === 'string' && typeof r.summary === 'string').slice(0, PAST_MAX);
       const m = saved.current;
       // The workers at the table outlive a restart of the office, so a meeting carries on where it was.
-      if (m && typeof m.id === 'string' && isMeetingPattern(m.pattern) && Array.isArray(m.seats) && Array.isArray(m.turns)) this.current = m;
+      if (m && typeof m.id === 'string' && isMeetingPattern(m.pattern) && Array.isArray(m.seats) && Array.isArray(m.turns)) this.current = { ...m, issue: issueId(m.issue) };
     } catch {
       // corrupt state file: an empty room
     }

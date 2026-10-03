@@ -10,7 +10,8 @@ import { landedWorkers } from '../src/server/leave-on-merge.js';
 import { Ledger } from '../src/server/usage.js';
 import { WorkerManager, relatedBlock, withRelated, workspaceNames, type RepoSource, type WorkerEvents } from '../src/server/workers.js';
 import { Worktrees } from '../src/server/worktrees.js';
-import type { ChangesState, GhPull, WorkerInfo } from '../src/shared/protocol.js';
+import type { ChangesState, WorkerInfo } from '../src/shared/protocol.js';
+import type { ChangeRequest } from '../src/shared/model/change-request.js';
 
 // A worker across repositories (WorkerInfo.repos): hired on one floor with other floors' projects,
 // it works in a workspace holding a worktree of each, all on one branch, and opens a PR in each.
@@ -335,9 +336,9 @@ test('prune leaves a workspace with worktrees in it alone, and lists the other r
   assert.deepEqual([...theirs.elsewhere], [['office/pip-1', path.join(f.a, '.agent-office', 'worktrees', 'pip-1', 'api')]]);
 });
 
-const pull = (number: number, state: string, headRefName: string, headRefOid?: string): GhPull => ({
-  number, title: `PR ${number}`, state, isDraft: false, url: '', author: '', labels: [], reviewDecision: '',
-  headRefName, headRefOid, baseRefName: 'main', createdAt: '', updatedAt: '', additions: 0, deletions: 0,
+const pull = (number: number, state: string, sourceBranch: string, sourceSha?: string): ChangeRequest => ({
+  number, title: `PR ${number}`, state: ({ OPEN: 'open', MERGED: 'merged', CLOSED: 'closed', DRAFT: 'draft' } as const)[state as 'OPEN'], url: '', author: '', labels: [], reviewDecision: '',
+  sourceBranch, sourceSha, targetBranch: 'main', createdAt: '', updatedAt: '', additions: 0, deletions: 0,
   checks: 'none', body: '', closes: [],
 });
 
@@ -348,7 +349,7 @@ test('a worker across repositories goes home once its pull requests have merged 
     repos: [{ floor: 'api', name: 'api', dir: '/api', path: '.agent-office/worktrees/pip-1/api', branch: 'office/pip-1', base: 'b', pr: { number: 9, url: '' } }],
   };
   const web = [pull(3, 'MERGED', 'office/pip-1', 'h3')];
-  const floors = (api: GhPull[] | undefined) => (id: string) => (id === 'api' ? api : undefined);
+  const floors = (api: ChangeRequest[] | undefined) => (id: string) => (id === 'api' ? api : undefined);
   // api's PR still open, or not on api's list (yet): it stays.
   assert.deepEqual(landedWorkers([w], web, [], floors([pull(9, 'OPEN', 'office/pip-1')])), []);
   assert.deepEqual(landedWorkers([w], web, [], floors([])), []);

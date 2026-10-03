@@ -36,3 +36,17 @@ export interface IssueReference {
   closing: string;
   url: string;
 }
+
+/** How to write an issue from its id alone, when its ref isn't to hand: "#12" for a number, else the id. */
+export function issueRefOf(id: string): string {
+  return /^\d+$/.test(id) ? `#${id}` : id;
+}
+
+/** A number from a note's key, for its tilt and color: an issue number keeps the look it had. */
+export function noteSeed(key: string): number {
+  const n = Number(key);
+  if (Number.isSafeInteger(n) && n >= 0) return n;
+  let h = 0;
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h;
+}
