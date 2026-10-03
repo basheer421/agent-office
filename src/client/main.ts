@@ -140,7 +140,7 @@ parts.bargames = installBarGames(ctx, { roof: parts.rooftop.roof, standUp, stopW
 parts.hanging = installHanging(ctx, { gallery: parts.gallery, reach });
 parts.climbing = installClimbing(ctx, { travel: (floorId, how, at) => parts.travel.travel(floorId, how, at), standUp, stopWalking });
 parts.cars = installCars(ctx, { standUp, stopWalking });
-installLiteWorld(ctx, parts);
+installLiteWorld(ctx, { stage: parts.stage, rooftop: parts.rooftop, cars: parts.cars, place: parts.place });
 
 parts.travel = installTravel(ctx, core, parts);
 parts.arrival = installArrival(ctx, core, parts);

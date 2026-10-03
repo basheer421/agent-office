@@ -1,26 +1,20 @@
 // 🏢 Building only (⚙️ Settings' Graphics, ui/settings-graphics.ts): no city round the roof, no cars,
 // no scenic loop, no weather and no holiday props. None of them is drawn or ticked while it's on: their
-// updates are wrapped here to skip, so the parts that own them don't need to know about it. The weather
-// is kept clear by features/performance, as Always clear does.
+// updates are wrapped here to skip (lite.ts), so the parts that own them don't need to know about it.
+// The weather is kept clear by features/performance, as Always clear does.
 import type { Ctx } from '../../core/context';
 import type { Parts } from '../../core/parts';
+import { skipWhile, veil } from './lite';
 
 export interface LiteWorld {
   /** Whether the world is down to the building. */
   lite(): boolean;
 }
 
-/** Wraps `obj[name]` so it's skipped while `skip()` says so. */
-function skipWhile<T extends object, K extends keyof T>(obj: T, name: K, skip: () => boolean) {
-  // SAFETY: only ever called with the name of a method (update, cull), so it's a function.
-  const real = obj[name] as unknown as (...args: unknown[]) => unknown;
-  (obj as Record<K, unknown>)[name] = function (this: unknown, ...args: unknown[]) {
-    if (skip()) return;
-    return real.apply(this, args);
-  };
-}
+/** Further out than this from the middle of the building, you're out on the scenic loop. */
+const OUT_ON_THE_LOOP = 40;
 
-export function installLiteWorld(ctx: Ctx, parts: Pick<Parts, 'stage' | 'rooftop'>): LiteWorld {
+export function installLiteWorld(ctx: Ctx, parts: Pick<Parts, 'stage' | 'rooftop' | 'cars' | 'place'>): LiteWorld {
   const lite = () => ctx.settings.world === 'lite';
   const { office } = ctx;
   const { holiday } = parts.stage;
@@ -28,27 +22,29 @@ export function installLiteWorld(ctx: Ctx, parts: Pick<Parts, 'stage' | 'rooftop
   skipWhile(office.scenic, 'update', lite);
   skipWhile(office.scenic, 'cull', lite);
   skipWhile(holiday, 'update', lite);
-  /** The roof's city, once the roof is built and its updates are wrapped. */
-  let city: { group: { visible: boolean } } | null = null;
+  const veils = [veil(office.cars.group), veil(office.scenic.group), veil(holiday.group)];
 
   let was = false;
-  // Before the frame is drawn, and after travel and the maps have had their say about the holiday props.
-  ctx.ticks.add('hud', () => {
+  ctx.ticks.add('pre', () => {
     const now = lite();
-    const roof = parts.rooftop.roof();
-    if (roof && !city) {
-      city = roof.city;
-      skipWhile(roof.city, 'update', lite);
+    // The roof is built the first time anyone goes up: its city is wrapped and veiled once it is.
+    const city = parts.rooftop.roof()?.city;
+    if (city) {
+      skipWhile(city, 'update', lite);
+      const v = veil(city.group);
+      if (!veils.includes(v)) veils.push(v);
     }
-    if (!now && !was) return;
-    office.cars.group.visible = !now;
-    for (const car of office.cars.cars) car.interactable.off = now;
-    office.scenic.group.visible = !now;
-    if (city) city.group.visible = !now;
-    if (now) holiday.group.visible = false;
-    // Back to the full world: the holiday props as travel and the maps would have them.
-    else holiday.group.visible = ctx.inOffice() && !ctx.upTop();
+    if (now && !was) leaveTheOutside();
+    for (const v of veils) v.visible = !now;
+    if (now !== was) for (const car of office.cars.cars) car.interactable.off = now;
     was = now;
   });
+
+  /** Out of the car you're in, and back off the scenic loop, before they stop being kept up. */
+  function leaveTheOutside() {
+    if (parts.cars.driver.active) parts.cars.getOut(true);
+    const { pos } = ctx.player;
+    if (ctx.inOffice() && !ctx.upTop() && Math.hypot(pos.x, pos.z) > OUT_ON_THE_LOOP) parts.place.placeAtSpawn();
+  }
   return { lite };
 }

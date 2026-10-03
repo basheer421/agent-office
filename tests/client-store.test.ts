@@ -219,6 +219,10 @@ test('what the browser remembers keeps its keys and shapes', () => {
   // A setting saved as something the office doesn't know goes back to how it starts.
   state.saveSettings({ ...settings, needsYouSound: 'loud' as never });
   assert.equal(state.loadSettings().needsYouSound, 'once');
+  state.saveSettings({ ...settings, world: 'lite' });
+  assert.equal(state.loadSettings().world, 'lite');
+  state.saveSettings({ ...settings, world: 'tiny' as never });
+  assert.equal(state.loadSettings().world, 'full');
   store.apply(welcome());
   assert.equal(state.lastFloor(), 'f1');
 });
