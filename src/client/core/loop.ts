@@ -20,6 +20,8 @@ const QUIET_FEET = 1.2;
 export interface LoopDeps {
   /** Offers the 2D view (/lite), where the 3D is hard going (see main.ts). */
   offer2d(why: 'slow'): void;
+  /** Frames are being skipped on purpose (features/performance), so they say nothing about this computer. */
+  slowed(): boolean;
 }
 
 /** Registers the office's own ticks: install it before anything else registers one. */
@@ -50,6 +52,7 @@ export function installLoop(ctx: Ctx, core: CoreState, parts: Pick<Parts, 'stage
 
   /** Frames coming too slowly for the 3D to be any fun: the 2D view is offered. */
   function watchFrameRate({ now, delta }: Frame) {
+    if (deps.slowed()) return;
     if (slowFrames.frame(now, delta * 1000)) deps.offer2d('slow');
   }
 
@@ -211,9 +214,14 @@ export function installLoop(ctx: Ctx, core: CoreState, parts: Pick<Parts, 'stage
  * The frame loop: each frame, every phase's ticks, in order (see TICK_PHASES, and installLoop). Its
  * clock starts now; hand what it returns to requestAnimationFrame to start it.
  */
-export function frameLoop(ctx: Ctx, loading: { drew(): void }): (ts?: number) => void {
+/** `pace` says whether to draw each frame the browser offers (features/performance): a skipped one runs nothing. */
+export function frameLoop(ctx: Ctx, loading: { drew(): void }, pace: (now: number) => boolean = () => true): (ts?: number) => void {
   const timer = new THREE.Timer();
   function frame(ts?: number) {
+    if (!pace(performance.now())) {
+      requestAnimationFrame(frame);
+      return;
+    }
     timer.update(ts);
     const delta = timer.getDelta();
     ctx.ticks.run({ delta, dt: Math.min(delta, 0.1), t: timer.getElapsed(), now: performance.now() });
