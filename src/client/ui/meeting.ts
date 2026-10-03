@@ -6,8 +6,7 @@ import { store } from '../state';
 import { h, openModal, timeAgo, toast, STATUS_LABEL, type Modal } from './dom';
 import { confirmDialog } from './prompt';
 import { providerPicker } from './provider';
-import { officePrompt } from './prompts';
-import { issueVars } from './boards/prompts';
+import { issueMeetingPrompt, issueVars } from './boards/prompts';
 import { dictateField } from './dictate';
 
 /** What a meeting called from an issue, a PR or a task starts out with. */
@@ -28,7 +27,7 @@ export interface MeetingActions {
 /** A meeting about an issue (by its id): the form filled in with it. */
 export function issueMeeting(id: string, title: string): MeetingPreset {
   const vars = issueVars({ id, title });
-  return { issue: id, title: `${vars.ref} ${title}`, prompt: officePrompt('issue.meeting', vars) };
+  return { issue: id, title: `${vars.ref} ${title}`, prompt: issueMeetingPrompt({ id, title }) };
 }
 
 const PART_LABEL: Record<MeetingTurn['state'], string> = { waiting: '⏳ up next', sent: '📨 handed over', working: '💬 on it', done: '✅ written' };

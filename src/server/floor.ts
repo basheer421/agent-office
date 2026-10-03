@@ -224,7 +224,7 @@ export class Floor {
     this.boards = new Boards(
       this.host,
       this.tracker,
-      (state) => ctx.emit(this, { t: 'issues.list', state }),
+      (state) => ctx.emit(this, { t: 'issues.list', state, tracker: this.boards.trackerView() }),
       (state) => {
         ctx.emit(this, { t: 'cr.list', state });
         this.queue?.onPulls(state.items);

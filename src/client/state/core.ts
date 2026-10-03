@@ -121,6 +121,7 @@ export const floor: Slice = {
     },
     'issues.list'(s, m) {
       s.issues = m.state;
+      if (m.tracker) s.tracker = m.tracker;
       return ['issues'];
     },
     'cr.list'(s, m) {
