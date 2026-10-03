@@ -47,7 +47,7 @@ export async function remoteRepo(dir: string): Promise<RemoteRepo | undefined> {
   }
   const resolved = (await out('git', ['config', '--get-regexp', String.raw`^remote\..*\.gh-resolved$`], dir)) ?? '';
   const base = /^remote\.(.+)\.gh-resolved base$/m.exec(resolved)?.[1];
-  const order = [base, 'upstream', 'github', 'origin', ...urls.keys()].filter((n): n is string => !!n && urls.has(n));
+  const order = [base, 'upstream', 'github', 'origin', ...urls.keys()].filter((n): n is string => n !== undefined && urls.has(n));
   for (const n of order) {
     const r = parseRemote(urls.get(n)!);
     if (r) return r;
@@ -75,7 +75,7 @@ export async function pickAccount(dir: string, base: NodeJS.ProcessEnv = process
   let accounts: { login: string; active: boolean }[];
   try {
     const hosts = JSON.parse(status).hosts?.[repo.host] ?? [];
-    accounts = hosts.filter((a: any) => a.state === 'success' && a.login).map((a: any) => ({ login: String(a.login), active: !!a.active }));
+    accounts = (hosts as { state?: string; login?: string; active?: boolean }[]).flatMap((a) => (a.state === 'success' && a.login ? [{ login: a.login, active: a.active === true }] : []));
   } catch {
     return undefined;
   }
@@ -83,8 +83,7 @@ export async function pickAccount(dir: string, base: NodeJS.ProcessEnv = process
   const envFor = async (login: string) => {
     const token = await out('gh', ['auth', 'token', '--hostname', repo.host, '--user', login], dir);
     if (!token) return undefined;
-    const env: Record<string, string> = {};
-    for (const [k, v] of Object.entries(base)) if (v !== undefined) env[k] = v;
+    const env = Object.fromEntries(Object.entries(base).filter((e): e is [string, string] => e[1] !== undefined));
     env[repo.host === 'github.com' ? 'GH_TOKEN' : 'GH_ENTERPRISE_TOKEN'] = token;
     return env;
   };

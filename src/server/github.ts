@@ -20,7 +20,7 @@ function friendly(raw: string): string {
 }
 
 /** Runs gh as the office, or with `env` as someone signed in to their own GitHub (see signins.ts). */
-export async function gh(args: string[], cwd: string, timeout = 30_000, env?: Record<string, string>, own = !!env): Promise<string> {
+export async function gh(args: string[], cwd: string, timeout = 30_000, env?: Record<string, string>, own = env !== undefined): Promise<string> {
   let r;
   try {
     r = await runCli('gh', args, { cwd, timeout, env });
@@ -32,6 +32,15 @@ export async function gh(args: string[], cwd: string, timeout = 30_000, env?: Re
   const msg = lastLines(r.stderr);
   const signedOut = own && /auth login|not logged in|authentication/i.test(msg);
   throw new Error(signedOut ? 'Your GitHub sign-in stopped working — sign in again (☰ → 🔐 Your sign-ins)' : friendly(msg));
+}
+
+/** gh's JSON output, or an error a person can read when it isn't JSON. */
+function json(out: string): any {
+  try {
+    return JSON.parse(out);
+  } catch {
+    throw new Error("gh answered with something that isn't JSON (try again, or check gh on the office's machine)");
+  }
 }
 
 function labels(raw: any[]): GhLabel[] {
@@ -99,7 +108,7 @@ export class MergeWatch {
     const merged = open ? pulls.filter((p) => p.state === 'MERGED' && open.has(p.number) && !this.rang.has(p.number)) : [];
     // Once GitHub says it merged, it never shows as open again to ring twice.
     for (const p of pulls) if (p.state === 'MERGED') this.rang.delete(p.number);
-    this.open = new Set(pulls.filter((p) => p.state === 'OPEN').map((p) => p.number));
+    this.open = new Set(pulls.flatMap((p) => (p.state === 'OPEN' ? [p.number] : [])));
     return merged;
   }
 }
@@ -133,7 +142,7 @@ export class Claims {
    */
   mark(items: GhIssue[], asked = 0): GhIssue[] {
     for (const [n, claim] of this.claimed) if (claim.at < asked) this.claimed.delete(n);
-    return items.map(({ taken, ...it }) => (this.claimed.has(it.number) ? { ...it, taken: true } : it));
+    return items.map(({ taken: _taken, ...it }) => (this.claimed.has(it.number) ? { ...it, taken: true } : it));
   }
 }
 
@@ -186,7 +195,7 @@ export class GitHub {
   /** The repository's full name and how it lets PRs merge. Asked once (again after a failure). */
   repoInfo(): Promise<GhRepoInfo> {
     this.repo ??= this.gh(['repo', 'view', '--json', 'nameWithOwner,squashMergeAllowed,mergeCommitAllowed,rebaseMergeAllowed']).then((out) => {
-      const r = JSON.parse(out);
+      const r = json(out);
       const methods = (['squash', 'merge', 'rebase'] as const).filter((m) => r[{ squash: 'squashMergeAllowed', merge: 'mergeCommitAllowed', rebase: 'rebaseMergeAllowed' }[m]]);
       return { nameWithOwner: String(r.nameWithOwner), methods: methods.length ? methods : ['squash', 'merge', 'rebase'] };
     });
@@ -214,11 +223,10 @@ export class GitHub {
       this.repoInfo(),
       me ?? this.viewer(),
     ]);
-    const p = JSON.parse(view);
+    const p = json(view);
     const reviewComments: GhReviewComment[] = lines
       .split('\n')
-      .filter((l) => l.trim())
-      .map((l) => JSON.parse(l))
+      .flatMap((l) => (l.trim() ? [json(l)] : []))
       .map((c: any) => ({
         id: c.id,
         replyTo: c.in_reply_to_id ?? undefined,
@@ -234,7 +242,7 @@ export class GitHub {
       number: p.number,
       body: String(p.body ?? ''),
       state: p.state,
-      isDraft: !!p.isDraft,
+      isDraft: Boolean(p.isDraft),
       reviewDecision: p.reviewDecision ?? '',
       headRefName: p.headRefName,
       baseRefName: p.baseRefName,
@@ -258,7 +266,7 @@ export class GitHub {
 
   async issueDetail(n: number, me?: string): Promise<GhIssueDetail> {
     const [view, viewer] = await Promise.all([this.gh(['issue', 'view', String(n), '--json', 'number,state,body,comments']), me ?? this.viewer()]);
-    const i = JSON.parse(view);
+    const i = json(view);
     return { number: i.number, state: i.state, body: String(i.body ?? ''), comments: commentsOf(i.comments), viewer };
   }
 
@@ -272,7 +280,7 @@ export class GitHub {
       // -f sends the body as a plain string: no @file reading, no {owner} filling in.
       const jq = '{id: .node_id, author: {login: .user.login}, body, createdAt: .created_at, url: .html_url}';
       const out = await this.gh(['api', '--method', 'POST', `repos/{owner}/{repo}/issues/${n}/comments`, '-f', `body=${body}`, '--jq', jq], undefined, as?.env);
-      [comment] = commentsOf([JSON.parse(out)]);
+      [comment] = commentsOf([json(out)]);
     } catch (err) {
       return { error: (err as Error).message };
     }
@@ -340,8 +348,7 @@ export class GitHub {
       const list = this.gh(['api', 'repos/{owner}/{repo}/labels?per_page=100', '--paginate', '--jq', '.[] | {name, color, description}']).then((out) =>
         out
           .split('\n')
-          .filter((l) => l.trim())
-          .map((l) => JSON.parse(l))
+          .flatMap((l) => (l.trim() ? [json(l)] : []))
           .map((l: any) => ({ name: String(l.name), color: `#${l.color ?? '888888'}`, description: l.description || undefined })),
       );
       this.labelList = { at: Date.now(), list };
@@ -360,16 +367,16 @@ export class GitHub {
     let now: GhLabel[] | undefined;
     try {
       // -f labels[]=… sends a JSON array of plain strings: no @file reading, no {owner} filling in.
-      if (add.length) now = labels(JSON.parse(await this.gh(['api', '--method', 'POST', path, ...add.flatMap((l) => ['-f', `labels[]=${l}`]), '--jq', jq], undefined, as?.env)));
+      if (add.length) now = labels(json(await this.gh(['api', '--method', 'POST', path, ...add.flatMap((l) => ['-f', `labels[]=${l}`]), '--jq', jq], undefined, as?.env)));
       for (const l of remove) {
         try {
-          now = labels(JSON.parse(await this.gh(['api', '--method', 'DELETE', `${path}/${encodeURIComponent(l)}`, '--jq', jq], undefined, as?.env)));
+          now = labels(json(await this.gh(['api', '--method', 'DELETE', `${path}/${encodeURIComponent(l)}`, '--jq', jq], undefined, as?.env)));
         } catch (err) {
           // Someone took it off already, which is what was asked for.
           if (!/label does not exist/i.test((err as Error).message)) throw err;
         }
       }
-      now ??= labels(JSON.parse(await this.gh(['api', `${path}?per_page=100`, '--jq', jq])));
+      now ??= labels(json(await this.gh(['api', `${path}?per_page=100`, '--jq', jq])));
     } catch (err) {
       // Some may have changed before it failed.
       void (kind === 'issue' ? this.refreshIssues() : this.refreshPulls());
@@ -491,7 +498,7 @@ export class GitHub {
         number: p.number,
         title: p.title,
         state: p.state,
-        isDraft: !!p.isDraft,
+        isDraft: Boolean(p.isDraft),
         url: p.url,
         author: p.author?.login ?? '',
         labels: labels(p.labels),
