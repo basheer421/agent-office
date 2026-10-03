@@ -27,6 +27,7 @@ import { modelBadge, providerLabel } from './ui/provider';
 import { byUrgency, waitingInOrder, waitingLabel } from './nextup';
 import { askNotifyPermission, DesktopNotifier, notifyPermission, waitingOnSomeone } from './notify';
 import { repoChoices } from './shared/hiring';
+import { sendHome } from './shared/sendhome';
 // The tab title counts the workers waiting on someone, on every floor, as the 3D office's does.
 import { renderTitle } from './shared/title';
 
@@ -44,6 +45,9 @@ const net = new Net(() => store.profile, () => null, true);
 const settings = loadSettings();
 const notifier = new DesktopNotifier(() => settings.notify, (id) => openWorker(id));
 
+/** No laptops are drawn here, so ask for none of their screens (each floor starts out sending them all). */
+const watchNoScreens = () => net.send({ t: 'screens.watch', workerIds: [] });
+
 /** The server version this page was loaded with. */
 let bootVersion = '';
 
@@ -60,6 +64,7 @@ net.onMessage((msg) => {
       if (!bootVersion) bootVersion = msg.version;
       else if (msg.version !== bootVersion) return location.reload();
       offTheRoof();
+      watchNoScreens();
       // After a reconnect the server has forgotten which terminal we had open, and what we're doing.
       sendDoing(true);
       const openId = openTerminalFor();
@@ -70,6 +75,7 @@ net.onMessage((msg) => {
     }
     case 'floor.enter':
       offTheRoof();
+      watchNoScreens();
       break;
     case 'toast':
       toast(msg.text, msg.level);
@@ -179,6 +185,8 @@ function workerCard(w: WorkerInfo): HTMLElement {
     ),
     // One that's asking something is answered in its terminal, where the question is.
     asleep || w.lost || w.status === 'needs_input' ? null : h('button.btn.lite-say', { type: 'button', title: `Send ${w.name} a prompt`, 'aria-label': `Send ${w.name} a prompt`, onclick: () => promptWorker(w.id) }, '✍️'),
+    // A lost one is sent home from its own dialog, which opens on tapping the card.
+    w.lost ? null : h('button.btn.lite-say', { type: 'button', title: `Send ${w.name} home`, 'aria-label': `Send ${w.name} home`, onclick: () => sendHome(w, DESK_BY_ID.get(w.deskId), (msg) => net.send(msg)) }, '🏠'),
   );
 }
 

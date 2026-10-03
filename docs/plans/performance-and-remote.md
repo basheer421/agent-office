@@ -58,7 +58,7 @@ Same machine and headless Chromium as above, 1400×900, `?profile` + a WebSocket
 | fps (30 fps cap) | 29.9 | 29.9 |
 | JS per frame / `render` phase | 10.4 ms / 6.65 ms | 10.4 ms / 6.7 ms (noise) |
 
-What changed: the page tells the office which laptops it can see (`screens.watch`, from `features/workers/screens.ts`, every 0.5 s and on `visibilitychange`), and `office/screens.ts` sends only those; one that comes back into view gets a full frame. A page that never says (`/lite`) still gets every screen. The laptop canvas drops mipmaps at full size (within ~3 m) and is painted at 512/256 wide, with cheap mipmaps, further off: dropping mipmaps outright made far screens shimmer (checked by screenshot), so the far tiers keep them. CPU per frame didn't move in these runs: the mip-chain rebuild is driver/GPU work that the CPU-side `?profile` numbers don't see, and the bandwidth is the measurable win.
+What changed: the page tells the office which laptops it can see (`screens.watch`, from `features/workers/screens.ts`, every 0.5 s and on `visibilitychange`), and `office/screens.ts` sends only those; one that comes back into view gets a full frame. A page that never says gets every screen; `/lite` asks for none (#10). The laptop canvas drops mipmaps at full size (within ~3 m) and is painted at 512/256 wide, with cheap mipmaps, further off: dropping mipmaps outright made far screens shimmer (checked by screenshot), so the far tiers keep them. CPU per frame didn't move in these runs: the mip-chain rebuild is driver/GPU work that the CPU-side `?profile` numbers don't see, and the bandwidth is the measurable win.
 
 ### Optimisations, cheapest first
 
@@ -70,7 +70,20 @@ What changed: the page tells the office which laptops it can see (`screens.watch
 | 4 | ~~Screens/terminals: update only what's in view~~ done (#12, #13): laptops repaint only in view, the office streams only the screens a page sees (none while hidden), far laptops paint small | Halves to zeroes screen traffic per client (numbers above) | done |
 | 5 | **"Lite world" toggle**: no city/cars/weather/holiday; the building only | CPU per frame | M |
 | 6 | ~~Profile properly~~ done (#7): numbers above; `?profile` shows them live | Turns guesses into numbers | done |
-| 7 | `/lite` already exists (non-3D view): check how far it goes as the "daily driver" view | Maybe zero work | S |
+| 7 | ~~`/lite` as the daily driver~~ checked (#10): it covers the daily loop; gaps below. It no longer gets laptop screens it never draws | No WebGL at all; zero screen traffic | done |
+
+### `/lite` vs the 3D office (#10)
+
+| Area | `/lite` | Gap |
+|---|---|---|
+| Terminals (attach, type, phone keys, prompt box, resume, rebuild), send home (🏠 on the card) | yes | Dictation, **+ Web page** tabs |
+| Hiring (agent/model/effort, worktree, issue, several repos) | yes | Shared shell (**B**), desk signs (**L**) |
+| PRs / issues / queue boards, ask-a-worker, one-click PR, changes | yes | Board agents' kiosks |
+| Floors, waiting-first list, notifications, meeting room, sign-ins | yes | Open folder / clone a floor (admin) |
+| Search (**/**), command palette (**Ctrl+K**) | no | small: both are DOM-only |
+| Cost per worker, Claude plan limits, machine monitor, services board | no | small: data is already in the store |
+| Accounts / invites, settings (map, holiday) | no | use 3D once |
+| Voice, screen sharing, whiteboard, pictures, games | no | 3D-only by design |
 
 Rule from `AGENTS.md`: each of these is its own module through the registries (Settings entry + tick-phase gate), never in `main.ts`.
 

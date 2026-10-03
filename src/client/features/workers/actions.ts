@@ -17,13 +17,14 @@ import type { Parts } from '../../core/parts';
 import { STATION_INFO } from '../../core/stations';
 import { askNotifyPermission, notifyPermission } from '../../notify';
 import { repoChoices } from '../../shared/hiring';
+import { sendHome } from '../../shared/sendhome';
 import { store } from '../../state';
 import { openAsk } from '../../ui/ask';
 import { STATUS_LABEL, clip, closeAllModals, h, toast } from '../../ui/dom';
 import { openDeskLabel } from '../../ui/floorplan';
 import type { MeetingPreset } from '../../ui/meeting';
-import { confirmDialog, lostWorktreeDialog, openPrompt, routeWorktreeMessage, sendHomeDialog } from '../../ui/prompt';
-import { providerLabel, resolvedProvider } from '../../ui/provider';
+import { lostWorktreeDialog, openPrompt, routeWorktreeMessage } from '../../ui/prompt';
+import { resolvedProvider } from '../../ui/provider';
 import { openPull } from '../../ui/pull';
 import { openRepoPulls, workerRepos } from '../../ui/repos';
 import { openTerminal } from '../../ui/terminal';
@@ -147,33 +148,7 @@ export function installWorkerActions(ctx: Ctx, core: CoreState, parts: WorkerAct
   ctx.messages.on('worker.worktree', routeWorktreeMessage);
   function killWorker(id: string) {
     const w = store.workers.get(id);
-    if (!w) return;
-    const where = plan().byId.get(w.deskId)?.label ?? 'the desk';
-    const session = w.kind === 'shell' ? 'shared shell' : `${providerLabel(w.provider, store.project)} session`;
-    if (w.meeting) {
-      // The meeting's worktree is the whole table's: it's tidied away once they've all gone.
-      const m = store.meeting.current;
-      const on = m?.id === w.meeting && m.status === 'running';
-      confirmDialog(`Send ${w.name} home?`, on ? `${w.name} is in the meeting on “${m.title}”, which stops without it.` : `${w.name} leaves the meeting room.`, 'Send home', () => net.send({ t: 'worker.kill', workerId: id }));
-      return;
-    }
-    if (w.worktree) {
-      // A worker with its own worktree: choose what becomes of the worktree and its branch.
-      sendHomeDialog({
-        workerId: id,
-        name: w.name,
-        where,
-        worktree: w.worktree,
-        repos: w.repos?.length ? [w.worktree.path.split('/').pop() ?? 'its own', ...w.repos.map((r) => r.name)] : undefined,
-        ask: () => net.send({ t: 'worker.worktree', workerId: id }),
-        onConfirm: (cleanup) => net.send({ t: 'worker.kill', workerId: id, cleanup }),
-      });
-      return;
-    }
-    const body = plan().byId.get(w.deskId)?.station
-      ? `This stops its ${session} for everyone, and it forgets what it was asked. The next prompt at the ${where} starts a fresh one.`
-      : `This stops the ${session} at ${where} for everyone and frees the desk.`;
-    confirmDialog(`Send ${w.name} home?`, body, 'Send home', () => net.send({ t: 'worker.kill', workerId: id }));
+    if (w) sendHome(w, plan().byId.get(w.deskId), (msg) => net.send(msg));
   }
 
   /** E at a board agent: type it a request. It's hired with it when nobody is there yet. */
