@@ -17,6 +17,7 @@ import { presenceHandlers } from './presence.js';
 import { projectHandlers } from './projects.js';
 import { queueHandlers, queueView } from './queue.js';
 import { rooftopHandlers } from './rooftop.js';
+import { screenHandlers, screenHooks } from './screens.js';
 import { servicesView, settingsHandlers } from './settings.js';
 import { signinsHandlers } from './signins.js';
 import { teamHandlers } from './team.js';
@@ -43,6 +44,7 @@ export const handlers: HandlerMap<ClientMsg> = {
   ...projectHandlers,
   ...queueHandlers,
   ...rooftopHandlers,
+  ...screenHandlers,
   ...settingsHandlers,
   ...signinsHandlers,
   ...teamHandlers,
@@ -55,7 +57,7 @@ export const handlers: HandlerMap<ClientMsg> = {
  * The features that keep something per person on a floor, in the order they let go of it when
  * someone leaves the floor or the office (see FeatureHooks): the order the office has always done it in.
  */
-export const features: readonly FeatureHooks[] = [workerHooks, changesHooks, whiteboardHooks, ballHooks, carHooks, cabinetHooks];
+export const features: readonly FeatureHooks[] = [workerHooks, changesHooks, whiteboardHooks, ballHooks, carHooks, cabinetHooks, screenHooks];
 
 /** What someone arriving on a floor is sent (see office/views.ts): a piece from each feature, in the order it has always gone out. */
 export const views: ViewPieces = {

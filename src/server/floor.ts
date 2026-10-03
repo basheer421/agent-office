@@ -51,6 +51,8 @@ export interface FloorContext {
   ghAs(owner: string | undefined): GhAs | undefined | string;
   /** To everyone on this floor. */
   emit(floor: Floor, msg: ServerMsg, droppable?: boolean): void;
+  /** A laptop screen's frame, to those on this floor who want that worker's screen. */
+  screen(floor: Floor, msg: Extract<ServerMsg, { t: 'screen' }>): void;
   toast(floor: Floor, text: string, level?: ToastLevel): void;
   /** A worker's terminal output, for whoever has that terminal open. */
   termData(workerId: string, data: string, viewers: string[]): void;
@@ -202,7 +204,7 @@ export class Floor {
           ctx.workerChanged(this, workerId);
         },
         data: (workerId, data, viewers) => ctx.termData(workerId, data, viewers),
-        screen: (workerId, frame) => ctx.emit(this, { t: 'screen', workerId, ...frame }, true),
+        screen: (workerId, frame) => ctx.screen(this, { t: 'screen', workerId, ...frame }),
         toast: (text, level) => ctx.toast(this, text, level),
       },
       ctx.ledger,

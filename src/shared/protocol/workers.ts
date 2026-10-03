@@ -200,6 +200,14 @@ export type WorkerClientMsg =
   | { t: 'term.typing'; workerId: string }
   | { t: 'term.resize'; workerId: string; cols: number; rows: number };
 
+export type ScreensClientMsg =
+  /**
+   * Only these workers' laptop screens are wanted from now on (the ones in view, or near): the rest
+   * aren't sent, and one that comes back gets a full frame. Empty while the tab is hidden. A page
+   * that never sends this (the 2D view) gets every screen on its floor, as before.
+   */
+  | { t: 'screens.watch'; workerIds: string[] };
+
 export type WorkerServerMsg =
   | { t: 'worker.update'; worker: WorkerInfo }
   /** A worker's gone; `jail`, when it was sent home on a map that locks workers up (MapPlan.sendHome), with it in there now. */
