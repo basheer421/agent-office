@@ -25,6 +25,8 @@ export interface Client {
   emotes: EmoteBucket;
   /** When this client last said it was typing, per terminal (see 'term.typing'). */
   typingAt: Map<string, number>;
+  /** The workers whose laptop screens this page wants (see 'screens.watch'); none set means all of them. */
+  screens?: Set<string>;
   /** Cleared at each heartbeat ping and set again by the pong; still clear at the next one means gone. */
   isAlive: boolean;
 }

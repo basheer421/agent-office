@@ -45,6 +45,21 @@ Top phases, ms per frame:
 
 Takeaways: (1) `aim` is a third of the JS frame for nothing: skip the raycast when the camera and pointer haven't moved. (2) The office uploads ~16 textures a frame at 30 fps: in-world screens re-uploading unchanged canvases (item 4 below) is real, the station has none. (3) 2.4 k draw calls on the base map is what `render` pays for; merging/instancing the static building is the next lever after that. GPU frame time wasn't measured here (these are CPU-side numbers); the Performance panel on a real tab is the way to read it.
 
+### Measured: live worker screens, 8 busy workers (issue #13, 2026-10-03)
+
+Same machine and headless Chromium as above, 1400×900, `?profile` + a WebSocket byte counter in the page. Eight shell workers each printing a log line every 100 ms; standing 7 m back from the desks, with 4 of the 8 laptops in view. Means of ten 1 s windows; WS figures count only `screen` frames.
+
+| | Before (`main`) | After |
+|---|---|---|
+| WS `screen` bytes per client, 4 of 8 laptops in view | 77.9 KB/s | **38.9 KB/s** |
+| Same, standing at one desk (2 in view) | 76.0 KB/s | **19.5 KB/s** |
+| Same, tab hidden | ~78 KB/s (kept arriving) | **0 KB/s** (and 43.7 KB/s again once visible) |
+| Raw socket, 2 of 8 watched / none (server side) | 86.6 KB/s, 32 frames/s | 21.8 KB/s, 8 frames/s / 0 |
+| fps (30 fps cap) | 29.9 | 29.9 |
+| JS per frame / `render` phase | 10.4 ms / 6.65 ms | 10.4 ms / 6.7 ms (noise) |
+
+What changed: the page tells the office which laptops it can see (`screens.watch`, from `features/workers/screens.ts`, every 0.5 s and on `visibilitychange`), and `office/screens.ts` sends only those; one that comes back into view gets a full frame. A page that never says (`/lite`) still gets every screen. The laptop canvas drops mipmaps at full size (within ~3 m) and is painted at 512/256 wide, with cheap mipmaps, further off: dropping mipmaps outright made far screens shimmer (checked by screenshot), so the far tiers keep them. CPU per frame didn't move in these runs: the mip-chain rebuild is driver/GPU work that the CPU-side `?profile` numbers don't see, and the bandwidth is the measurable win.
+
 ### Optimisations, cheapest first
 
 | # | Change | Gain | Effort |
@@ -52,7 +67,7 @@ Takeaways: (1) `aim` is a third of the JS frame for nothing: skip the raycast wh
 | 1 | **Idle throttle**: when no input for N s and nothing animating that matters, drop to 10 fps; on `blur` drop to 2–5 fps; on `visibilitychange` hidden stop | Biggest single win | S |
 | 2 | **FPS cap** setting (30 / 60 / display), default 30 on battery (`navigator.getBattery`) | ~half on 120 Hz | S |
 | 3 | **Quality setting**: pixel ratio 1, outline off | 2–4× GPU | S |
-| 4 | Screens/terminals: update a texture only when its content changed **and** it's in the camera frustum and within distance; other floors never | Removes most texture uploads | M |
+| 4 | ~~Screens/terminals: update only what's in view~~ done (#12, #13): laptops repaint only in view, the office streams only the screens a page sees (none while hidden), far laptops paint small | Halves to zeroes screen traffic per client (numbers above) | done |
 | 5 | **"Lite world" toggle**: no city/cars/weather/holiday; the building only | CPU per frame | M |
 | 6 | ~~Profile properly~~ done (#7): numbers above; `?profile` shows them live | Turns guesses into numbers | done |
 | 7 | `/lite` already exists (non-3D view): check how far it goes as the "daily driver" view | Maybe zero work | S |
