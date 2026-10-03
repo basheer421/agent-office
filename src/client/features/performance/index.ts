@@ -2,7 +2,7 @@
 // ⚙️ Settings' Graphics (ui/settings-graphics.ts).
 import type { Ctx } from '../../core/context';
 import type { Parts } from '../../core/parts';
-import { Pacer, type PaceState } from './pace';
+import { Pacer, pixelRatioFor, type PaceState } from './pace';
 
 export interface Performance {
   /** Whether to draw the frame the browser offers at `now`. */
@@ -20,7 +20,10 @@ export function installPerformance(ctx: Ctx, parts: Pick<Parts, 'stage'>): Perfo
   const touched = () => {
     lastInput = performance.now();
   };
-  for (const type of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart'] as const) window.addEventListener(type, touched, { capture: true, passive: true });
+  for (const type of ['keydown', 'pointerdown', 'wheel', 'touchstart'] as const) window.addEventListener(type, touched, { capture: true, passive: true });
+  // Only a pointer that actually moved: Firefox keeps firing still ones (under pointer lock and
+  // otherwise), which kept the office out of its idle pace for good (#28).
+  window.addEventListener('pointermove', (e) => (e.movementX || e.movementY) && touched(), { capture: true, passive: true });
   window.addEventListener('focus', () => {
     focused = true;
     touched();
@@ -41,15 +44,17 @@ export function installPerformance(ctx: Ctx, parts: Pick<Parts, 'stage'>): Perfo
     })
     .catch(() => {});
 
-  // The quality: full (outlines, up to a retina screen's pixels) or low (no outlines, one pixel per CSS pixel).
+  // The quality: full (outlines, up to a retina screen's pixels within a budget, see pixelRatioFor) or
+  // low (no outlines, one pixel per CSS pixel). Looked at again when the window's size or screen changes.
   let quality: string | null = null;
   function applyQuality() {
-    const want = ctx.settings.quality;
+    const want = `${ctx.settings.quality} ${window.devicePixelRatio} ${window.innerWidth}x${window.innerHeight}`;
     if (want === quality) return;
     quality = want;
-    const low = want === 'low';
+    const low = ctx.settings.quality === 'low';
     parts.stage.effect.enabled = !low;
-    ctx.renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 2));
+    const ratio = pixelRatioFor(window.devicePixelRatio, window.innerWidth, window.innerHeight, low);
+    if (ratio !== ctx.renderer.getPixelRatio()) ctx.renderer.setPixelRatio(ratio);
   }
 
   // Calm weather (or the building only, see features/lite-world): a clear sky for you alone (the sky's preview, see Sky.show), so no rain to draw or hear.

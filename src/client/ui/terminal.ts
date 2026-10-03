@@ -2,6 +2,7 @@ import './terminal.css';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { WebglAddon } from '@xterm/addon-webgl';
 import type { Net } from '../net';
 import { store } from '../state';
 import { TERM_THEME } from './termtheme';
@@ -365,6 +366,15 @@ export function openTerminal(net: Net, workerId: string, onChanges?: () => void,
   });
 
   term.open(host);
+  // Drawn on the GPU: xterm's own DOM renderer rebuilds rows of spans for every line of output, which
+  // pegs Firefox while an agent streams (#28). Back to the DOM if WebGL isn't there or its context is lost.
+  try {
+    const webgl = new WebglAddon();
+    webgl.onContextLoss(() => webgl.dispose());
+    term.loadAddon(webgl);
+  } catch {
+    // The DOM renderer it is.
+  }
   const sendEsc = () => {
     sendSize(true);
     sayTyping();
