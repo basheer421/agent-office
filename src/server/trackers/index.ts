@@ -1,7 +1,7 @@
 // The one place that picks an issue tracker for a project folder. Everything else sees only IssueTracker.
 import { githubRepo, hostKindOf } from '../hosts/index.js';
 import { overrides } from '../projects/store.js';
-import { ClickUpApi, ClickUpTracker, NO_TOKEN, clickUpEnv, type ClickUpSpace } from './clickup/index.js';
+import { ClickUpApi, ClickUpTracker, NO_TOKEN, clickUpEnv, type ClickUpList, type ClickUpSpace } from './clickup/index.js';
 import { GitHubTracker } from './github/index.js';
 import { NoTracker } from './none.js';
 import type { IssueTracker } from './types.js';
@@ -14,6 +14,12 @@ const clickupApi = new ClickUpApi();
 export async function clickUpSpaces(): Promise<{ spaces: ClickUpSpace[]; error?: string }> {
   if (!clickUpEnv().token) return { spaces: [], error: NO_TOKEN };
   return clickupApi.spaces().then((spaces) => ({ spaces }), (err: Error) => ({ spaces: [], error: err.message }));
+}
+
+/** A space's lists, for ⚙️ Project settings to pick where new tasks go, or why there are none. */
+export async function clickUpLists(space: string): Promise<{ lists: ClickUpList[]; error?: string }> {
+  if (!clickUpEnv().token) return { lists: [], error: NO_TOKEN };
+  return clickupApi.lists(space).then((lists) => ({ lists }), (err: Error) => ({ lists: [], error: err.message }));
 }
 
 /** GitLab projects keep their issues in ClickUp: until a space is picked, no issues board on them. */
@@ -38,7 +44,7 @@ export class FloorTracker implements IssueTracker {
   private fallback?: IssueTracker;
   private clickup?: ClickUpTracker;
   /** The space as last read, and when (reading it runs git, and kind/caps are asked often). */
-  private read = { at: 0, gen: -1, space: undefined as string | undefined };
+  private read = { at: 0, gen: -1, space: undefined as string | undefined, list: undefined as string | undefined };
 
   constructor(
     private readonly dir: string,
@@ -48,10 +54,13 @@ export class FloorTracker implements IssueTracker {
   /** What it is right now. */
   current(): IssueTracker {
     const now = Date.now();
-    if (now - this.read.at > 2000 || this.read.gen !== generation) this.read = { at: now, gen: generation, space: overrides(this.dir).clickupSpace };
-    const { space } = this.read;
+    if (now - this.read.at > 2000 || this.read.gen !== generation) {
+      const o = overrides(this.dir);
+      this.read = { at: now, gen: generation, space: o.clickupSpace, list: o.clickupList };
+    }
+    const { space, list } = this.read;
     if (space) {
-      if (this.clickup?.space !== space) this.clickup = new ClickUpTracker(space);
+      if (this.clickup?.space !== space || this.clickup.newTaskList !== list) this.clickup = new ClickUpTracker(space, list);
       return this.clickup;
     }
     return (this.fallback ??= hostTracker(this.dir, this.hostKind));
@@ -87,6 +96,18 @@ export class FloorTracker implements IssueTracker {
   get assignSelf() {
     const t = this.current();
     return t.assignSelf?.bind(t);
+  }
+  get statuses() {
+    const t = this.current();
+    return t.statuses?.bind(t);
+  }
+  get setStatus() {
+    const t = this.current();
+    return t.setStatus?.bind(t);
+  }
+  get create() {
+    const t = this.current();
+    return t.create?.bind(t);
   }
   get labels() {
     return this.current().labels;

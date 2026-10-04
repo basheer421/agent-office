@@ -2,6 +2,7 @@ import type { Comment } from '../../../shared/protocol';
 import type { Net } from '../../net';
 import { h } from '../dom';
 import { markdown } from '../markdown';
+import { store } from '../../state';
 import { commentWaiters } from './api';
 import { DRAFT_KEY, pref, savePref } from './prefs';
 
@@ -30,7 +31,7 @@ export function commentBox(kind: 'issue' | 'pull', id: string, itemUrl: string, 
   const shown = h('div.gh-compose-preview.hidden');
   const write = h('button.btn.on', { type: 'button' }, 'Write');
   const preview = h('button.btn', { type: 'button' }, 'Preview');
-  const who = h('span.grow', {}, "Posts as the office's own account");
+  const who = h('span.grow', {}, kind === 'issue' && store.tracker.kind === 'clickup' ? "Posts with the office's ClickUp token, signed with your name" : "Posts as the office's own account");
   const post = h('button.btn.primary', { type: 'button' }, '💬 Comment');
   const result = h('div.gh-merge-result.error.hidden');
   const el = h(

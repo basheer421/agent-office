@@ -31,7 +31,10 @@ export function overrides(dir: string): ProjectOverrides {
     const raw = JSON.parse(readFileSync(configFile(dir), 'utf8')) as Record<string, unknown>;
     const out: ProjectOverrides = {};
     for (const k of FIELDS) if (typeof raw[k] === 'string' && raw[k]) out[k] = raw[k] as string;
-    if (typeof raw.clickupSpace === 'string' && CLICKUP_ID.test(raw.clickupSpace)) out.clickupSpace = raw.clickupSpace;
+    if (typeof raw.clickupSpace === 'string' && CLICKUP_ID.test(raw.clickupSpace)) {
+      out.clickupSpace = raw.clickupSpace;
+      if (typeof raw.clickupList === 'string' && CLICKUP_ID.test(raw.clickupList)) out.clickupList = raw.clickupList;
+    }
     return out;
   } catch {
     return {};
@@ -53,6 +56,12 @@ export function setOverrides(dir: string, next: ProjectOverrides, gitlabHosts: r
   if (space) {
     if (!CLICKUP_ID.test(space)) return `ClickUp space "${space}" isn't a space id (a number, from the space's URL)`;
     keep.clickupSpace = space;
+    // The list only means something in its space.
+    const list = next.clickupList?.trim();
+    if (list) {
+      if (!CLICKUP_ID.test(list)) return `ClickUp list "${list}" isn't a list id (a number)`;
+      keep.clickupList = list;
+    }
   }
   try {
     mkdirSync(path.dirname(configFile(dir)), { recursive: true });
@@ -70,5 +79,5 @@ export function effective(dir: string, gitlabHosts: readonly string[] = DEFAULT_
   let cfg = { ...found };
   if (over.pushRemote && over.pushRemote !== found.pushRemote && found.remotes.includes(over.pushRemote)) cfg = { ...cfg, pushRemote: over.pushRemote, ...remoteFacts(dir, over.pushRemote, gitlabHosts) };
   if (over.baseBranch) cfg.baseBranch = over.baseBranch;
-  return { ...cfg, ...(over.clickupSpace ? { clickupSpace: over.clickupSpace } : {}), detected: found, overridden: Object.keys(over) as (keyof ProjectOverrides)[] };
+  return { ...cfg, ...(over.clickupSpace ? { clickupSpace: over.clickupSpace } : {}), ...(over.clickupList ? { clickupList: over.clickupList } : {}), detected: found, overridden: Object.keys(over) as (keyof ProjectOverrides)[] };
 }

@@ -1,5 +1,6 @@
 import type { ChangeRequest, Comment, Issue, Label, ServerMsg } from '../../../shared/protocol';
 import { store } from '../../state';
+import { routeTrackerWrite } from './tracker-writes';
 
 // Talking to the office about the boards: the reads (over HTTP, for the floor you're on), and the
 // answers to what the dialogs asked for over the socket (merged, commented, closed, labeled).
@@ -61,5 +62,6 @@ export function routePullMessage(msg: ServerMsg) {
   if (msg.t === 'cr.moved') moveWaiters.get(msg.number)?.(msg);
   if (msg.t === 'cr.closed') closeWaiters.get(`pull:${msg.number}`)?.(msg);
   if (msg.t === 'issues.closed') closeWaiters.get(`issue:${msg.id}`)?.(msg);
+  routeTrackerWrite(msg);
   if (msg.t === 'labels.changed') labelWaiters.get(`${msg.target === 'cr' ? 'pull' : 'issue'}:${msg.id}`)?.(msg);
 }

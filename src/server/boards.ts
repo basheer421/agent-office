@@ -73,12 +73,12 @@ export class Boards {
     return me ? { ...d, viewer: me } : d;
   }
 
-  /** Comments on an issue (by id) or a change request's conversation (by number), as `as` or else the office: the comment as saved, or why it couldn't. */
-  async comment(kind: Kind, id: string, body: string, as?: Actor): Promise<{ comment?: Comment; error?: string }> {
+  /** Comments on an issue (by id) or a change request's conversation (by number), as `as` or else the office (signed `by` on ClickUp): the comment as saved, or why it couldn't. */
+  async comment(kind: Kind, id: string, body: string, as?: Actor, by?: string): Promise<{ comment?: Comment; error?: string }> {
     let comment: Comment;
     try {
       if (kind === 'cr') comment = await this.host.comment(Number(id), body, as);
-      else if (this.tracker.comment) comment = await this.tracker.comment(id, body, as);
+      else if (this.tracker.comment) comment = await this.tracker.comment(id, body, as, by);
       else return { error: "This project's issue tracker doesn't take comments from the office" };
     } catch (err) {
       return { error: (err as Error).message };
@@ -107,10 +107,10 @@ export class Boards {
   }
 
   /** Closes an issue, or a pull request without merging it, optionally saying why. Returns an error. */
-  async close(kind: Kind, id: string, opts: { comment?: string; reason?: CloseReason; deleteBranch?: boolean }, as?: Actor): Promise<string | undefined> {
+  async close(kind: Kind, id: string, opts: { comment?: string; reason?: CloseReason; deleteBranch?: boolean }, as?: Actor, by?: string): Promise<string | undefined> {
     try {
       if (kind === 'cr') await this.host.close(Number(id), { comment: opts.comment, deleteBranch: opts.deleteBranch }, as);
-      else if (this.tracker.close) await this.tracker.close(id, { comment: opts.comment, reason: opts.reason }, as);
+      else if (this.tracker.close) await this.tracker.close(id, { comment: opts.comment, reason: opts.reason }, as, by);
       else return "This project's issue tracker doesn't let the office close issues";
     } catch (err) {
       return (err as Error).message;
@@ -122,6 +122,11 @@ export class Boards {
       if (still) setTimeout(() => void refresh(), 3000);
     });
     return undefined;
+  }
+
+  /** Something else changed the issues (a status, a new task): look again, twice, since a look under way was asked before it. */
+  issuesChanged(): Promise<void> {
+    return this.refreshIssues().then(() => this.refreshIssues());
   }
 
   /** Every label the repository has, for the label picker. */

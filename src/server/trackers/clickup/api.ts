@@ -1,4 +1,4 @@
-// ClickUp's REST API (v2), read-only, with the office's own API token. The ClickUp MCP sign-in is per
+// ClickUp's REST API (v2), with the office's own API token. The ClickUp MCP sign-in is per
 // agent session, so the server can't use it: it reads CLICKUP_API_TOKEN from its environment.
 import { HostError } from '../../../shared/model/host.js';
 
@@ -27,6 +27,18 @@ export interface ClickUpComment {
   date?: string;
 }
 
+export interface ClickUpStatus {
+  status: string;
+  color?: string;
+  type?: string;
+  orderindex?: number | string;
+}
+
+export interface ClickUpList {
+  id: string;
+  name: string;
+}
+
 export interface ClickUpSpace {
   id: string;
   name: string;
@@ -46,12 +58,23 @@ export const NO_TOKEN = 'The office has no ClickUp API token: set CLICKUP_API_TO
 export class ClickUpApi {
   private team?: Promise<string>;
 
-  async get<T>(pathAndQuery: string): Promise<T> {
+  get<T>(pathAndQuery: string): Promise<T> {
+    return this.call<T>('GET', pathAndQuery);
+  }
+
+  /** A write: only ever from a person's click on the board, never a worker's own. */
+  send<T>(method: 'POST' | 'PUT', path: string, body: unknown): Promise<T> {
+    return this.call<T>(method, path, body);
+  }
+
+  private async call<T>(method: string, pathAndQuery: string, body?: unknown): Promise<T> {
     const { base, token } = clickUpEnv();
     if (!token) throw new HostError('auth', NO_TOKEN);
     let res: Response;
     try {
-      res = await fetch(`${base}${pathAndQuery}`, { headers: { Authorization: token, Accept: 'application/json' }, signal: AbortSignal.timeout(20_000) });
+      const headers: Record<string, string> = { Authorization: token, Accept: 'application/json' };
+      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      res = await fetch(`${base}${pathAndQuery}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(20_000) });
     } catch (err) {
       throw new HostError('failed', `Couldn't reach ClickUp: ${(err as Error).message}`);
     }
@@ -100,5 +123,35 @@ export class ClickUpApi {
   async comments(id: string): Promise<ClickUpComment[]> {
     const r = await this.get<{ comments: ClickUpComment[] }>(`/task/${encodeURIComponent(id)}/comment`);
     return r.comments ?? [];
+  }
+
+  /** A list's workflow statuses, in order. */
+  async listStatuses(list: string): Promise<ClickUpStatus[]> {
+    const r = await this.get<{ statuses?: ClickUpStatus[] }>(`/list/${encodeURIComponent(list)}`);
+    return [...(r.statuses ?? [])].sort((a, b) => Number(a.orderindex ?? 0) - Number(b.orderindex ?? 0));
+  }
+
+  /** A space's lists: those in its folders, in order, then those outside any folder (ClickUp's sidebar order). */
+  async lists(space: string): Promise<ClickUpList[]> {
+    const s = encodeURIComponent(space);
+    const [folders, loose] = await Promise.all([
+      this.get<{ folders?: { name: string; lists?: ClickUpList[] }[] }>(`/space/${s}/folder?archived=false`),
+      this.get<{ lists?: ClickUpList[] }>(`/space/${s}/list?archived=false`),
+    ]);
+    const inFolders = (folders.folders ?? []).flatMap((f) => (f.lists ?? []).map((l) => ({ id: String(l.id), name: `${f.name} › ${l.name}` })));
+    return [...inFolders, ...(loose.lists ?? []).map((l) => ({ id: String(l.id), name: l.name }))];
+  }
+
+  async addComment(id: string, text: string): Promise<{ id: string; date?: string | number }> {
+    const r = await this.send<{ id: string | number; date?: string | number }>('POST', `/task/${encodeURIComponent(id)}/comment`, { comment_text: text, notify_all: false });
+    return { id: String(r.id), date: r.date };
+  }
+
+  setStatus(id: string, status: string): Promise<ClickUpTask> {
+    return this.send<ClickUpTask>('PUT', `/task/${encodeURIComponent(id)}`, { status });
+  }
+
+  createTask(list: string, name: string, description: string): Promise<ClickUpTask> {
+    return this.send<ClickUpTask>('POST', `/list/${encodeURIComponent(list)}/task`, { name, description });
   }
 }

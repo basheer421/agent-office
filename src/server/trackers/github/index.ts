@@ -13,7 +13,7 @@ const FIELDS = 'number,title,state,url,author,labels,assignees,createdAt,updated
 
 export class GitHubTracker implements IssueTracker {
   readonly kind = 'github' as const;
-  readonly caps: TrackerCapabilities = { comment: true, close: true, assign: true, labels: true };
+  readonly caps: TrackerCapabilities = { comment: true, close: true, assign: true, labels: true, status: false, create: false };
   readonly labels: { list(): Promise<Label[]>; set(id: string, add: string[], remove: string[], as?: Actor): Promise<Label[]> };
 
   constructor(private readonly repo: GitHubRepo) {
