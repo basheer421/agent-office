@@ -161,7 +161,7 @@ export async function officeWorkers(ctx: Ctx, req: http.IncomingMessage, res: ht
     const n = ask.issue;
     const ref = issueRefOf(n);
     floor.queue.dropIssue(n);
-    const as = owner ? ctx.signins.ghAs(owner) : undefined;
+    const as = owner ? ctx.signins.hostAs(owner, floor.dir) : undefined;
     if (typeof as === 'string') ctx.toastFloor(floor, `Couldn't assign issue ${ref}: ${as}`, 'warn');
     else void floor.boards.claim(n, as).then((e) => e && ctx.toastFloor(floor, `Couldn't assign issue ${ref}: ${e}`, 'warn'));
   }

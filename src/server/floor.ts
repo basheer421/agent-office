@@ -49,7 +49,8 @@ export interface FloorContext {
   /** Workers hired by an account run on its own sign-ins (see signins.ts). */
   runAs?: RunAs;
   /** How to run gh as an account: its own sign-in, the office's (undefined), or why it can't. */
-  ghAs(owner: string | undefined): GhAs | undefined | string;
+  /** On a GitLab floor (`dir`), it's glab as them. */
+  ghAs(owner: string | undefined, dir?: string): GhAs | undefined | string;
   /** To everyone on this floor. */
   emit(floor: Floor, msg: ServerMsg, droppable?: boolean): void;
   /** A laptop screen's frame, to those on this floor who want that worker's screen. */
@@ -248,7 +249,7 @@ export class Floor {
       },
       toast: (text, level) => ctx.toast(this, text, level),
       claimIssue: (issue, owner) => {
-        const as = ctx.ghAs(owner);
+        const as = ctx.ghAs(owner, this.dir);
         return typeof as === 'string' ? Promise.resolve(as) : this.boards.claim(issue, as);
       },
       refreshGitHub: () => void this.boards.refresh(),
@@ -283,7 +284,7 @@ export class Floor {
         toast: (text, level) => ctx.toast(this, text, level),
         hiringPaused: () => ctx.ledger.hiringPaused,
         postReview: (pr, file, owner) => {
-          const as = ctx.ghAs(owner);
+          const as = ctx.ghAs(owner, this.dir);
           return typeof as === 'string' ? Promise.reject(new Error(as)) : Promise.resolve().then(() => this.boards.review(pr, readFileSync(file, 'utf8'), as));
         },
         prompt: (id) => prompts.text(id),

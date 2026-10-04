@@ -1,5 +1,6 @@
 import { WebSocket } from 'ws';
 import type { GhAs } from '../signins.js';
+import { gitlabHostOf } from '../gitlab-signins.js';
 import type { Floor } from '../floor.js';
 import type { SignInKind } from '../../shared/protocol.js';
 import { issueRefOf } from '../../shared/model/issue.js';
@@ -15,7 +16,7 @@ export function gates(ctx: Ctx): Gates {
    */
   const takeIssue = (c: Client, floor: Floor, n: string) => {
     floor.queue.dropIssue(n);
-    const as = c.accountId ? ctx.signins.ghAs(c.accountId) : undefined;
+    const as = c.accountId ? ctx.signins.hostAs(c.accountId, floor.dir) : undefined;
     if (typeof as === 'string') return ctx.warn(c, `Couldn't assign issue ${issueRefOf(n)}: ${as}`);
     void floor.boards.claim(n, as).then((err) => ctx.warn(c, err && `Couldn't assign issue ${issueRefOf(n)}: ${err}`));
   };
@@ -54,18 +55,29 @@ export function gates(ctx: Ctx): Gates {
     });
   };
   /** Runs `go` with how the office acts on GitHub for `c`: as them, or as itself (no account, or an admin's choice). */
-  const withGitHub = (c: Client, go: (as: GhAs | undefined) => void, refused?: (why: string) => void) =>
-    withSignIn(
-      c,
-      'github',
-      () => {
-        const as = c.accountId ? ctx.signins.ghAs(c.accountId) : undefined;
-        if (typeof as !== 'string') return go(as);
-        if (refused) refused(as);
-        else ctx.warn(c, as);
-      },
-      refused,
-    );
+  const withGitHub = (c: Client, go: (as: GhAs | undefined) => void, refused?: (why: string) => void) => {
+    const dir = ctx.floorOf(c)?.dir;
+    const act = () => {
+      const as = c.accountId ? ctx.signins.hostAs(c.accountId, dir) : undefined;
+      if (typeof as !== 'string') return go(as);
+      if (refused) refused(as);
+      else ctx.warn(c, as);
+    };
+    const host = dir && gitlabHostOf(dir);
+    if (!host) return withSignIn(c, 'github', act, refused);
+    // A GitLab floor: their own glab sign-in to its host (looked at again, in case they just signed in).
+    const { signins } = ctx;
+    const id = c.accountId;
+    if (!id || signins.hostReady(id, dir)) return act();
+    void signins.look(id, true).then(() => {
+      if (c.out || c.ws.readyState !== WebSocket.OPEN) return;
+      if (signins.hostReady(id, dir)) return act();
+      const why = signins.whyGitlab(host);
+      if (refused) refused(why);
+      else ctx.warn(c, why);
+      ctx.sendTo(c, { t: 'signins.needed', which: 'github', why });
+    });
+  };
   /** Needs a Claude sign-in of its own when the worker it starts runs Claude. */
   const claudeFor = (provider: string | undefined): SignInKind | undefined => (provider === 'claude' ? 'claude' : undefined);
 

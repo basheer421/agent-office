@@ -4,7 +4,7 @@
 //
 // Browser-safe: no node imports, the hire dialog reads this too.
 
-export const AGENT_PROVIDERS = ['claude', 'opencode', 'codex', 'grok', 'muse', 'dsh', 'pi', 'cursor', 'custom'] as const;
+export const AGENT_PROVIDERS = ['claude', 'opencode', 'codex', 'grok', 'muse', 'dsh', 'pi', 'pi-chat', 'cursor', 'custom'] as const;
 
 export type AgentProvider = (typeof AGENT_PROVIDERS)[number];
 
@@ -304,6 +304,23 @@ export const PROVIDER_META: Record<AgentProvider, ProviderMeta> = {
     effortLabel: 'Thinking',
     usage: { note: 'Pi uses your existing Pi login and settings. Usage and cost stay in its terminal; the office does not meter them.' },
   },
+  'pi-chat': {
+    label: 'Pi (chat)',
+    name: 'Pi',
+    bin: 'pi',
+    validModel: isValidPiModel,
+    invalidModel: 'Invalid Pi model (expected a model name or provider/model without whitespace)',
+    models: {
+      pick: 'typed',
+      unset: 'Default (Pi settings)',
+      max: PI_MODEL_MAX,
+      hint: 'Optional model name or provider/model; leave Default to use Pi settings.',
+      invalid: 'Use a Pi model name or provider/model: letters, digits and . _ : / @ + - (up to 256 characters).',
+    },
+    takesEffort: true,
+    effortLabel: 'Thinking',
+    usage: { reports: true, waiting: 'waiting for first reply', note: 'Pi runs in its RPC mode: the office reads its events and draws the transcript itself, with your Pi login, settings and extensions. Usage and cost come from Pi.' },
+  },
   cursor: {
     label: 'Cursor',
     name: 'Cursor',
@@ -355,6 +372,6 @@ export function savedEffort(provider: unknown, effort: unknown): AgentEffort | u
 
 /** "a, b or c": the names of the providers that `has` holds for, in the table's order. */
 export function providerNames(has: (meta: ProviderMeta) => boolean): string {
-  const names = AGENT_PROVIDERS.map((p) => PROVIDER_META[p]).filter(has).map((m) => m.name);
+  const names = [...new Set(AGENT_PROVIDERS.map((p) => PROVIDER_META[p]).filter(has).map((m) => m.name))];
   return names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}` : names.join('');
 }

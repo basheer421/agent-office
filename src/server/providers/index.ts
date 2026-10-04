@@ -10,6 +10,7 @@ import { grok } from './grok.js';
 import { muse } from './muse.js';
 import { opencode } from './opencode.js';
 import { pi } from './pi.js';
+import { piChat } from './pichat.js';
 import type { SomeAdapter } from './types.js';
 
 export type { LaunchPlan, ProviderAdapter, ProviderFloor, SomeAdapter } from './types.js';
@@ -22,6 +23,7 @@ export const PROVIDERS: Record<AgentProvider, SomeAdapter> = {
   muse,
   dsh,
   pi,
+  'pi-chat': piChat,
   cursor,
   custom,
 };
