@@ -2,6 +2,7 @@
 // floor. A new feature adds its handler file and a line here.
 import type { ClientMsg } from '../../../shared/protocol.js';
 import { accountsHandlers } from './accounts.js';
+import { chatHandlers } from './agentchat.js';
 import { ballHandlers, ballHooks, ballView } from './ball.js';
 import { cabinetHandlers, cabinetHooks, cabinetView } from './cabinet.js';
 import { carHandlers, carHooks, carsView } from './car.js';
@@ -34,6 +35,7 @@ export const handlers: HandlerMap<ClientMsg> = {
   ...accountsHandlers,
   ...ballHandlers,
   ...cabinetHandlers,
+  ...chatHandlers,
   ...carHandlers,
   ...changesHandlers,
   ...decorHandlers,

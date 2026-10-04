@@ -7,6 +7,7 @@ import type { Net } from '../net';
 import { store } from '../state';
 import { TERM_THEME } from './termtheme';
 import { h, openModal, STATUS_LABEL, timeAgo, toast, type Modal } from './dom';
+import { closeChat, openChat, routeChatMessage } from './chatview';
 import { usageLabel, usageTitle } from './usage';
 import type { ServerMsg, WorkerInfo } from '../../shared/protocol';
 import { isAsleep } from '../../shared/status';
@@ -72,6 +73,8 @@ export interface TerminalOptions {
    * take the focus as it opens either, so a phone's keyboard stays down until you tap into it.
    */
   keypad?: boolean;
+  /** A chat-mode worker's terminal rather than its chat window (chatview.ts). */
+  raw?: boolean;
 }
 
 /** The keypad's keys: what each types, or a function of the terminal for the ones that depend on its mode. */
@@ -92,6 +95,7 @@ const listeners = new Set<(msg: ServerMsg) => void>();
 
 /** Main feeds every server message through here so open terminals can pick theirs. */
 export function routeTerminalMessage(msg: ServerMsg) {
+  routeChatMessage(msg);
   listeners.forEach((fn) => fn(msg));
 }
 
@@ -107,6 +111,11 @@ export function openTerminal(net: Net, workerId: string, onChanges?: () => void,
   current?.modal.close();
   const info = store.workers.get(workerId);
   if (!info) return;
+  if (info.chat && !opts.raw) {
+    openChat(net, workerId, { onRaw: () => openTerminal(net, workerId, onChanges, find, { ...opts, raw: true }), onChanges });
+    return;
+  }
+  closeChat();
 
   const dot = h('span.dot', { style: `background:${info.color}` });
   const title = h('h2', {}, info.kind === 'agent' ? `${engineLabel(info, store.project)} · ${info.name}` : info.name);

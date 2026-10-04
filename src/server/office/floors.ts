@@ -92,6 +92,13 @@ export async function openFloors(ctx: Ctx, hookPort: number): Promise<FloorsOpen
         else c.ws.send(json);
       }
     },
+    chatData: (msg, viewers) => {
+      const json = JSON.stringify(msg satisfies ServerMsg);
+      for (const id of viewers) {
+        const c = clients.get(id);
+        if (c?.ws.readyState === WebSocket.OPEN) c.ws.send(json);
+      }
+    },
     changes: (state, ids) => {
       for (const id of ids) {
         const c = clients.get(id);

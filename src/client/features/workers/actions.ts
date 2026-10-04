@@ -23,7 +23,7 @@ import { openAsk } from '../../ui/ask';
 import { STATUS_LABEL, clip, closeAllModals, h, toast } from '../../ui/dom';
 import { openDeskLabel } from '../../ui/floorplan';
 import type { MeetingPreset } from '../../ui/meeting';
-import { lostWorktreeDialog, openPrompt, routeWorktreeMessage } from '../../ui/prompt';
+import { chatPref, lostWorktreeDialog, openPrompt, routeWorktreeMessage } from '../../ui/prompt';
 import { resolvedProvider } from '../../ui/provider';
 import { openPull } from '../../ui/pull';
 import { openRepoPulls, workerRepos } from '../../ui/repos';
@@ -79,7 +79,7 @@ export function installWorkerActions(ctx: Ctx, core: CoreState, parts: WorkerAct
   }
 
   function hire(deskId: string, prompt?: string, worktree = false, provider?: AgentProvider, model?: string, effort?: AgentEffort, issue?: string, repos?: string[], via?: 'herald') {
-    net.send({ t: 'worker.spawn', deskId, prompt, worktree, provider, model, effort, issue, repos: repos?.length ? repos : undefined, via });
+    net.send({ t: 'worker.spawn', deskId, prompt, worktree, provider, model, effort, issue, repos: repos?.length ? repos : undefined, via, chat: chatPref() || undefined });
     // The moment notifications start to matter: ask once (it has to come from a key press or click).
     if (settings.notify && notifyPermission() === 'default' && !askedToNotify) {
       askedToNotify = true;
