@@ -17,6 +17,8 @@ import { DropStore } from '../drops.js';
 import type { Capacity } from '../machine.js';
 import { PROVIDERS, providerAdapter, titleNoise, type LaunchPlan, type ProviderFloor } from '../providers/index.js';
 import { launchAcp } from './acp.js';
+import { WorkerChats } from './chat.js';
+import { launchRpc } from './rpc.js';
 import { clockWork } from './clock.js';
 import { childEnv } from './env.js';
 import { midTurn } from './lifecycle.js';
@@ -62,6 +64,8 @@ export class WorkerManager {
   private tasks: WorkerTasks;
   private worktrees: WorkerTrees;
   private prs: WorkerPrs;
+  /** Chat-mode workers' chats (see chat.ts). */
+  readonly chats: WorkerChats;
   private usageTimer: NodeJS.Timeout;
   /** Runs the workers' terminals outside the office, so they outlive a restart of it (see ptys.ts). */
   private host: PtyHost;
@@ -121,6 +125,7 @@ export class WorkerManager {
     this.tasks = new WorkerTasks(this.ctx, claude, childEnv());
     this.worktrees = new WorkerTrees(this.ctx);
     this.prs = new WorkerPrs(this.ctx);
+    this.chats = new WorkerChats(this.ctx);
     this.host = new PtyHost(dataDir, () => this.events.toast("The workers' terminal host stopped — resuming them", 'warn'));
     this.scrollback = new ScrollbackStore(dataDir);
     this.drops = new DropStore(dataDir);
@@ -219,7 +224,7 @@ export class WorkerManager {
    * (see meetings.ts), in the meeting's own worktree, which everyone at the table shares. `repos` are
    * other floors' repositories a worker in its own worktree works in too (see makeWorkspace).
    */
-  spawn(deskId: string, by: string, prompt?: string, worktree = false, kind: WorkerKind = 'agent', provider?: AgentProvider, model?: string, effort?: AgentEffort, meeting?: { id: string; worktree?: WorkerInfo['worktree'] }, owner?: string, repos: RepoSource[] = [], via?: 'herald'): WorkerInfo | string {
+  spawn(deskId: string, by: string, prompt?: string, worktree = false, kind: WorkerKind = 'agent', provider?: AgentProvider, model?: string, effort?: AgentEffort, meeting?: { id: string; worktree?: WorkerInfo['worktree'] }, owner?: string, repos: RepoSource[] = [], via?: 'herald', chat = false): WorkerInfo | string {
     // Nobody picked (a board agent, say): the office's default worker, model and effort included.
     if (kind === 'agent' && provider === undefined) ({ provider, model, effort } = this.officeDefault);
     const selectedProvider = kind === 'agent' ? provider : undefined;
@@ -280,6 +285,7 @@ export class WorkerManager {
       createdBy: by,
       createdAt: Date.now(),
       ...(via ? { via } : {}),
+      ...(chat && kind === 'agent' && providerAdapter(selectedProvider)?.chat ? { chat: true } : {}),
       prompt: kind === 'shell' ? undefined : prompt?.trim() || undefined,
       worktree: wt,
       repos: others,
@@ -458,19 +464,10 @@ export class WorkerManager {
   write(id: string, data: string, by: string) {
     const w = this.workers.get(id);
     if (!w) return;
-    if (w.dsh) {
-      // ACP has no terminal: the session buffers these into a line and submits it on Enter.
-      w.dsh.writeInput(data);
-      let changed = this.typed(w, by);
-      if (w.info.status === 'needs_input' && w.info.acked === false) {
-        w.info.acked = true;
-        changed = true;
-      }
-      if (changed) this.emitUpdate(w);
-      return;
-    }
-    if (!w.pty) return;
-    w.pty.write(data);
+    // Without a PTY (ACP, RPC) there is no terminal: the session buffers these into a line and submits it on Enter.
+    if (w.dsh) w.dsh.writeInput(data);
+    else if (w.pty) w.pty.write(data);
+    else return;
     let changed = this.typed(w, by);
     if (w.info.status === 'needs_input' && w.info.acked === false) {
       w.info.acked = true;
@@ -696,12 +693,13 @@ export class WorkerManager {
     }
     adapter?.usage?.locate?.(this.handleOf(w), cwd, env);
 
-    if (adapter?.transport === 'acp' || adapter?.transport === 'rpc') {
-      // No PTY and no argv for prompts: the office owns an ACP or RPC connection instead, and
-      // renders its updates into this same terminal (see dsh.ts, pirpc.ts).
+    if (adapter?.transport === 'acp' || adapter?.transport === 'rpc' || info.chat) {
+      // No PTY and no argv for prompts or resume: the office owns an ACP (see dsh.ts) or RPC (pirpc.ts, or
+      // rpc.ts for chat mode) connection instead, and renders its updates into this same terminal.
       const file = commandPath ?? shell;
       const acpArgs = commandPath ? args : shellRun(['exec', command, ...args].map((a, i) => (i < 2 ? a : shq(a))).join(' '));
-      launchAcp(this.ctx, w, term, { file, args: acpArgs, cwd, env, resumeSessionId, prompt }, adapter.transport);
+      if (info.chat) launchRpc(this.ctx, w, this.handleOf(w), term, { file, args: acpArgs, cwd, env, prompt, resumed: !!resumeSessionId });
+      else launchAcp(this.ctx, w, term, { file, args: acpArgs, cwd, env, resumeSessionId, prompt }, adapter!.transport as 'acp' | 'rpc');
       this.emitUpdate(w);
       this.persist();
       return;

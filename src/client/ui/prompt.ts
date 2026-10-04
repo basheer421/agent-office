@@ -25,6 +25,16 @@ export interface PromptOptions {
 }
 
 const WT_KEY = 'agent-office.worktree';
+const CHAT_KEY = 'agent-office.pichat';
+/** Whether a new Pi worker gets the office's chat window instead of a terminal (the last hire's choice). */
+export function chatPref(): boolean {
+  try {
+    return localStorage.getItem(CHAT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 /** Whether the last hire asked for its own git worktree (the Ask window shares the choice). */
 export function worktreePref(): boolean {
   try {
@@ -67,6 +77,16 @@ export function openPrompt(opts: PromptOptions) {
         '🌿 Work in its own git worktree & branch',
     )
     : null;
+  const chatBox = h('input', { type: 'checkbox', id: 'chat-toggle' }) as HTMLInputElement;
+  chatBox.checked = chatPref();
+  const chatRow = opts.providerOption
+    ? h(
+        'label',
+        { for: 'chat-toggle', style: 'display:flex;gap:8px;align-items:center;margin:10px 0 0;font-weight:700;cursor:pointer', title: 'Pi only: the office draws its chat (tool cards, questions, steering). Its terminal is still a button away.' },
+        chatBox,
+        '💬 Pi in a chat window, not a terminal',
+      )
+    : null;
   const repos = repoPicker(opts.worktreeOption ? opts.repoOptions : undefined, wtBox);
   const provider: ProviderPicker | null = opts.providerOption ? providerPicker(store.project, 'prompt-provider') : null;
   const submit = h('button.btn.primary', { type: 'submit' }, opts.submitLabel ?? 'Send ✨');
@@ -75,7 +95,7 @@ export function openPrompt(opts: PromptOptions) {
     'form.modal',
     { role: 'dialog', 'aria-label': opts.title },
     h('header', {}, h('h2', {}, opts.title)),
-    h('div.body', {}, opts.warning ? h('p.setting-note.bad', { style: 'margin:0 0 10px', role: 'alert' }, opts.warning) : null, opts.subtitle ? h('p', { style: 'margin:0 0 10px;font-weight:700;color:var(--muted)' }, opts.subtitle) : null, dictateField(ta), provider?.element ?? null, wtRow, repos.element),
+    h('div.body', {}, opts.warning ? h('p.setting-note.bad', { style: 'margin:0 0 10px', role: 'alert' }, opts.warning) : null, opts.subtitle ? h('p', { style: 'margin:0 0 10px;font-weight:700;color:var(--muted)' }, opts.subtitle) : null, dictateField(ta), provider?.element ?? null, chatRow, wtRow, repos.element),
     h('footer', {}, h('span.grow', {}, 'Enter to send · Shift+Enter for a new line'), cancel, submit),
   ) as HTMLFormElement;
   form.noValidate = true;
@@ -93,6 +113,13 @@ export function openPrompt(opts: PromptOptions) {
     if (opts.worktreeOption) {
       try {
         localStorage.setItem(WT_KEY, wtBox.checked ? '1' : '0');
+      } catch {
+        // storage blocked
+      }
+    }
+    if (opts.providerOption) {
+      try {
+        localStorage.setItem(CHAT_KEY, chatBox.checked ? '1' : '0');
       } catch {
         // storage blocked
       }
