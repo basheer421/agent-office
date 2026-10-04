@@ -120,7 +120,7 @@ export async function openFloors(ctx: Ctx, hookPort: number): Promise<FloorsOpen
     lent: (floor) => [...floors.values()].some((f) => f !== floor && worksIn(f, floor)),
     locksUp: () => !!ctx.maps.plan().sendHome?.keeps,
     runAs: ctx.signins,
-    ghAs: (owner) => (owner ? ctx.signins.ghAs(owner) : undefined),
+    ghAs: (owner, dir) => (owner ? ctx.signins.hostAs(owner, dir) : undefined),
   };
   /** Whether a worker on `from` works in `on`'s project too (see WorkerInfo.repos). */
   const worksIn = (from: Floor, on: Floor) => from.workers.list().some((w) => w.repos?.some((r) => r.floor === on.id));

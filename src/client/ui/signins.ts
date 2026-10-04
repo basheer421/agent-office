@@ -1,5 +1,5 @@
 import './signins.css';
-import type { SignInKind, SignInState } from '../../shared/protocol';
+import type { GitLabSignInsState, SignInKind, SignInState } from '../../shared/protocol';
 import type { Net } from '../net';
 import { store } from '../state';
 import { h, openModal, type Modal } from './dom';
@@ -31,7 +31,7 @@ export function openSignIns(net: Net, why?: string) {
       h('p.note.lead', {}, 'Your workers run on your own Claude plan, and the office acts on GitHub as you: comments, merges and pull requests show up under your name. Only your workers use them.'),
       banner,
       cards,
-      h('p.note', {}, 'Or open a 🐚 shell at any desk: it runs as you, so ', h('code', {}, 'claude auth login'), ' and ', h('code', {}, 'gh auth login'), ' typed there sign you in too.'),
+      h('p.note', {}, 'Or open a 🐚 shell at any desk: it runs as you, so ', h('code', {}, 'claude auth login'), ', ', h('code', {}, 'gh auth login'), ' and ', h('code', {}, 'glab auth login'), ' typed there sign you in too.'),
     ),
   );
 
@@ -40,6 +40,13 @@ export function openSignIns(net: Net, why?: string) {
     code: h('input', { type: 'text', placeholder: 'Paste the code here', 'aria-label': 'Code from the sign-in page', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement,
     claude: h('input', { type: 'password', placeholder: 'sk-ant-oat01-…', 'aria-label': 'Claude token', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement,
     github: h('input', { type: 'password', placeholder: 'ghp_… or github_pat_…', 'aria-label': 'GitHub token', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement,
+  };
+  /** A GitLab token box per GitLab host, made when that host first shows. */
+  const gitlabInputs = new Map<string, HTMLInputElement>();
+  const gitlabInput = (host: string) => {
+    let input = gitlabInputs.get(host);
+    if (!input) gitlabInputs.set(host, (input = h('input', { type: 'password', placeholder: 'glpat-…', 'aria-label': `GitLab token for ${host}`, autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement));
+    return input;
   };
 
   const say = (text?: string) => {
@@ -136,6 +143,44 @@ export function openSignIns(net: Net, why?: string) {
     return box;
   };
 
+  /** 🦊 GitLab: a pasted personal access token per GitLab host in ⚙️ (see server/gitlab-signins.ts). */
+  const gitlabCard = (g: GitLabSignInsState, office: boolean) => {
+    const signedIn = g.hosts.filter((x) => x.status === 'ok').length;
+    const status =
+      g.how === 'office'
+        ? h('span.signin-who.ok', {}, '✅ The office’s own')
+        : h(`span.signin-who${signedIn ? '.ok' : '.none'}`, {}, signedIn ? `✅ ${signedIn} of ${g.hosts.length}` : 'Not signed in');
+    const body = h('div.signin-body');
+    const box = h('section.signin', { class: g.how === 'office' || signedIn === g.hosts.length ? 'ok' : 'none' }, h('div.team-head', {}, h('h4', {}, '🦊 GitLab'), status), body);
+    if (g.error) body.append(h('p.team-status.error', {}, g.error));
+    if (g.how === 'office') {
+      body.append(h('div.signin-actions', {}, button('Use my own instead', () => net.send({ t: 'signins.gitlab.office', on: false }))));
+      return box;
+    }
+    for (const x of g.hosts) {
+      const row = h('div.signin-host', {}, h('div.team-head', {}, h('strong', {}, x.host), h(`span.signin-who${x.status === 'ok' ? '.ok' : '.none'}`, {}, x.status === 'ok' ? (x.who ?? 'Signed in') : x.status === 'busy' ? '⏳' : 'Not signed in')));
+      if (x.error) row.append(h('p.team-status.error', {}, x.error));
+      if (x.status === 'ok') {
+        row.append(h('div.signin-actions', {}, button('Sign out', () => confirmDialog(`Sign out of ${x.host}?`, 'The office stops acting on this GitLab as you until you paste a new token.', 'Sign out', () => net.send({ t: 'signins.gitlab.signout', host: x.host })))));
+      } else {
+        const input = gitlabInput(x.host);
+        const form = h('form.invite-row', {}, input, h('button.btn', { type: 'submit' }, 'Save')) as HTMLFormElement;
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const token = input.value.trim();
+          if (!token) return input.focus();
+          net.send({ t: 'signins.gitlab.token', host: x.host, token });
+          input.value = '';
+        });
+        const make = `https://${x.host}/-/user_settings/personal_access_tokens?name=Agent%20Office&scopes=api,write_repository`;
+        row.append(h('p.note', {}, 'Paste a personal access token (', h('a', { href: make, target: '_blank', rel: 'noopener noreferrer' }, 'make one'), ' with api and write_repository).'), form);
+      }
+      body.append(row);
+    }
+    if (office) body.append(h('div.signin-actions', {}, button('Use the office’s own', () => net.send({ t: 'signins.gitlab.office', on: true }))));
+    return box;
+  };
+
   const render = () => {
     const s = store.signins;
     const typing = document.activeElement;
@@ -145,7 +190,8 @@ export function openSignIns(net: Net, why?: string) {
       return;
     }
     cards.append(card('claude', s.claude, s.office), card('github', s.github, s.office));
-    if (typing instanceof HTMLInputElement && Object.values(inputs).includes(typing) && typing.isConnected) typing.focus();
+    if (s.gitlab?.hosts.length) cards.append(gitlabCard(s.gitlab, s.office));
+    if (typing instanceof HTMLInputElement && [...Object.values(inputs), ...gitlabInputs.values()].includes(typing) && typing.isConnected) typing.focus();
     // Once both are sorted, whatever sent you here is too.
     if (s.claude.status === 'ok' && s.github.status === 'ok') say();
   };

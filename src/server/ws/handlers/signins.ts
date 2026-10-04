@@ -50,4 +50,4 @@ export const signinsHandlers = {
     if (!id) return;
     void ctx.signins.signOut(id, whichOf(msg));
   },
-} satisfies HandlerMap<SignInsClientMsg>;
+} satisfies HandlerMap<Exclude<SignInsClientMsg, { t: `signins.gitlab.${string}` }>>;
