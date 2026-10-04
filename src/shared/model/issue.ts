@@ -18,6 +18,8 @@ export interface Issue {
   updatedAt: string;
   body: string;
   comments: number;
+  /** Its workflow status as the tracker names it (ClickUp's "in progress"), when it has one. */
+  status?: string;
 }
 
 export interface IssueDetail {

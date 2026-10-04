@@ -9,7 +9,7 @@ import { effective, setOverrides } from '../../projects/store.js';
 import { str } from '../../office/input.js';
 import type { HandlerMap } from './types.js';
 import type { Client } from '../../office/client.js';
-import { clickUpSpaces, trackerChanged } from '../../trackers/index.js';
+import { clickUpLists, clickUpSpaces, trackerChanged } from '../../trackers/index.js';
 
 const rootsOf = new WeakMap<Ctx, ProjectRoots>();
 /** The office's roots and GitLab hosts (one per office). */
@@ -24,7 +24,8 @@ const isGit = (dir: string) => existsSync(path.join(dir, '.git'));
 /** A floor's settings, with the ClickUp spaces there are to pick from. */
 async function sendConfig(ctx: Ctx, c: Client, floorId: string, dir: string) {
   const config = effective(dir, projectRoots(ctx).gitlabHosts);
-  ctx.sendTo(c, { t: 'project.config', floor: floorId, config: { ...config, clickup: await clickUpSpaces() } });
+  const [clickup, lists] = await Promise.all([clickUpSpaces(), config.clickupSpace ? clickUpLists(config.clickupSpace) : undefined]);
+  ctx.sendTo(c, { t: 'project.config', floor: floorId, config: { ...config, clickup: { ...clickup, ...(lists ? { lists: lists.lists, listsError: lists.error } : {}) } } });
 }
 
 export const projectHandlers = {
@@ -79,7 +80,7 @@ export const projectHandlers = {
     const o = msg.overrides ?? {};
     const err = setOverrides(
       floor.def.dir,
-      { pushRemote: o.pushRemote ? str(o.pushRemote, 200) : undefined, baseBranch: o.baseBranch ? str(o.baseBranch, 200) : undefined, clickupSpace: o.clickupSpace ? str(o.clickupSpace, 32) : undefined },
+      { pushRemote: o.pushRemote ? str(o.pushRemote, 200) : undefined, baseBranch: o.baseBranch ? str(o.baseBranch, 200) : undefined, clickupSpace: o.clickupSpace ? str(o.clickupSpace, 32) : undefined, clickupList: o.clickupList ? str(o.clickupList, 32) : undefined },
       projectRoots(ctx).gitlabHosts,
     );
     if (err) return ctx.sendTo(c, { t: 'project.config', floor: floor.id, error: err });

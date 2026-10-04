@@ -8,6 +8,8 @@ export interface ProjectOverrides {
   baseBranch?: string;
   /** The ClickUp space whose open tasks are the floor's issues (its id); none keeps the host's issues. */
   clickupSpace?: string;
+  /** The list in that space new tasks go in (its id); none means the space's first list. */
+  clickupList?: string;
 }
 
 /** A ClickUp space ⚙️ Project settings can pick. */
@@ -32,8 +34,9 @@ export interface ProjectConfig extends DetectedProject {
   detected: DetectedProject;
   overridden: (keyof ProjectOverrides)[];
   clickupSpace?: string;
-  /** The spaces the office's ClickUp token sees, for picking one, or why there are none. */
-  clickup?: { spaces: ClickUpSpaceChoice[]; error?: string };
+  clickupList?: string;
+  /** The spaces the office's ClickUp token sees, for picking one, or why there are none; and the picked space's lists. */
+  clickup?: { spaces: ClickUpSpaceChoice[]; error?: string; lists?: ClickUpSpaceChoice[]; listsError?: string };
 }
 
 export interface ProjectRootsState {

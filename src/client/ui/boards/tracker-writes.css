@@ -1,0 +1,6 @@
+.status-pill { font-weight: 800; }
+.status-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow: auto; }
+.status-row { display: flex; align-items: center; gap: 8px; text-align: left; text-transform: capitalize; }
+.status-row.on { outline: 3px solid var(--ink); }
+.status-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--ink); flex: none; }
+.new-task input[type='text'] { font-size: 16px; font-weight: 800; }

@@ -9,6 +9,7 @@
 // registered in (./slices/index.ts), and that order is the order their topics fire in.
 
 import type { ChatLine, FloorInfo, FloorView, Issue, ChangeRequest, BoardState, HostView, TrackerView, Me, PeerInfo, ProjectInfo, ProjectsDirState, QueueState, QueueTask, RepoChoice, Run, ServerMsg, WorkerInfo } from '../../shared/protocol';
+import { NO_TRACKER_CAPS } from '../../shared/model/tracker';
 import { randomLook } from '../../shared/avatar';
 /** Until a floor says otherwise: GitHub's words, and nothing it can do. */
 export const NO_HOST: HostView = { kind: 'none', words: { crNoun: 'pull request', crShort: 'PR', refPrefix: '#', cli: 'gh' }, caps: { labels: false, reviews: false, autoMerge: false, draft: false, lineComments: false, mergeMethods: [] } };
@@ -110,7 +111,7 @@ export class Store {
   pulls: BoardState<ChangeRequest> = { items: [], fetchedAt: 0, loading: true };
   /** The floor's code host (what it calls a change request, what it can do) and its issue tracker. */
   host: HostView = NO_HOST;
-  tracker: TrackerView = { kind: 'none', caps: { comment: false, close: false, assign: false, labels: false } };
+  tracker: TrackerView = { kind: 'none', caps: NO_TRACKER_CAPS };
   ice: RTCIceServer[] = [];
   chat: ChatLine[] = [];
   /** Whether this office can invite teammates (deployed with deploy/aws.sh). */

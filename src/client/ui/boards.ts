@@ -11,6 +11,7 @@ import { labelChip, openLabels } from './boards/labels';
 import { inProgress } from './boards/progress';
 import type { BoardActions } from './boards/prompts';
 import { openPull } from './boards/pull-window';
+import { newTaskKey, openNewTask } from './boards/tracker-writes';
 import { providerLabel } from './provider';
 
 const TILTS = ['-1.2deg', '0.8deg', '-0.4deg', '1.4deg', '0deg', '-0.9deg'];
@@ -136,7 +137,9 @@ export function openBoard(kind: 'issues' | 'pulls', net: Net, actions: BoardActi
   const status = h('span.board-status');
   const refresh = h('button.btn', { title: `Refresh from ${hostName()}`, onclick: () => net.send({ t: 'boards.refresh' }) }, '🔄 Refresh');
   const close = h('button.btn.close', { 'aria-label': 'Close' }, '✕');
-  const el = h('div.modal.board', { role: 'dialog', 'aria-label': kind === 'issues' ? 'Issues board' : 'Pull requests board' }, h('header', {}, h('h2', {}, kind === 'issues' ? '📌 Issues' : '🔀 Pull Requests'), status, refresh, close), body);
+  const created = (it: Issue) => openIssue(it, net, actions);
+  const newTask = h('button.btn.hidden', { type: 'button', title: "A new task in the floor's default list (N)", onclick: () => openNewTask(net, created) }, '➕ New task');
+  const el = h('div.modal.board', { role: 'dialog', 'aria-label': kind === 'issues' ? 'Issues board' : 'Pull requests board' }, h('header', {}, h('h2', {}, kind === 'issues' ? '📌 Issues' : '🔀 Pull Requests'), status, newTask, refresh, close), body);
 
   const filters = loadFilters(kind);
   /** What each column's filter box holds (column key → text), for as long as the board is open. */
@@ -307,7 +310,13 @@ export function openBoard(kind: 'issues' | 'pulls', net: Net, actions: BoardActi
     if (caret && again instanceof HTMLInputElement) again.setSelectionRange(caret[0], caret[1]);
   };
 
-  const unsubs = [store.on(kind, render), store.on('queue', render)];
+  const unsubs: (() => unknown)[] = [store.on(kind, render), store.on('queue', render)];
+  // ClickUp floors take new tasks: N, or the button (the tracker can change with ⚙️ Project settings).
+  if (kind === 'issues') {
+    const showNew = () => void newTask.classList.toggle('hidden', !store.tracker.caps.create);
+    showNew();
+    unsubs.push(store.on('issues', showNew), newTaskKey(el, net, created));
+  }
   // Which desk a PR came from can change (a worker sent home, a PR opened from a desk).
   if (kind === 'pulls') unsubs.push(store.on('workers', render));
   // Drag a PR's card to another column to mark it ready, approve, merge, close or reopen it.

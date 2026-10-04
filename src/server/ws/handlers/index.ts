@@ -25,6 +25,7 @@ import { screenHandlers, screenHooks } from './screens.js';
 import { servicesView, settingsHandlers } from './settings.js';
 import { signinsHandlers } from './signins.js';
 import { teamHandlers } from './team.js';
+import { trackerWritesHandlers } from './tracker-writes.js';
 import { usageHandlers } from './usage.js';
 import { whiteboardHandlers, whiteboardHooks, whiteboardView } from './whiteboard.js';
 import { jailView, workerHandlers, workerHooks, workersView } from './workers.js';
@@ -56,6 +57,7 @@ export const handlers: HandlerMap<ClientMsg> = {
   ...settingsHandlers,
   ...signinsHandlers,
   ...teamHandlers,
+  ...trackerWritesHandlers,
   ...usageHandlers,
   ...whiteboardHandlers,
   ...workerHandlers,

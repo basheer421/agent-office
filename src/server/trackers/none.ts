@@ -1,12 +1,12 @@
 // A floor with no issue tracker: an empty board.
 import { HostError } from '../../shared/model/host.js';
 import type { Issue, IssueDetail, IssueReference } from '../../shared/model/issue.js';
-import type { TrackerCapabilities } from '../../shared/model/tracker.js';
+import { NO_TRACKER_CAPS, type TrackerCapabilities } from '../../shared/model/tracker.js';
 import type { IssueTracker } from './types.js';
 
 export class NoTracker implements IssueTracker {
   readonly kind = 'none' as const;
-  readonly caps: TrackerCapabilities = { comment: false, close: false, assign: false, labels: false };
+  readonly caps: TrackerCapabilities = NO_TRACKER_CAPS;
   /** `why`, when given, is shown on the board in place of an empty list. */
   constructor(private why?: string) {}
 

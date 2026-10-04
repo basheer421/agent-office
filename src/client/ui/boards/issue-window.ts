@@ -11,6 +11,7 @@ import { commentBox } from './comment-box';
 import { labelButton, labelChip } from './labels';
 import { avatar, commentCard, errorBox, nodes, spinnerRow } from './pieces';
 import { issueContext, issuePrompt, type BoardActions } from './prompts';
+import { statusButton } from './tracker-writes';
 
 // ---- The issue window -----------------------------------------------------------------------------
 
@@ -69,6 +70,7 @@ export function openIssue(first: Issue, net: Net, actions: BoardActions) {
         h('b', {}, it.author),
         h('span', {}, `opened this ${timeAgo(it.createdAt)}`),
         it.assignees.length ? h('span', {}, `· 👤 ${it.assignees.join(', ')}`) : it.taken ? h('span', {}, '· 🤖 handed to a worker') : null,
+        statusButton(it, net, (status) => ((it = { ...it, status }), renderFrame())),
         ...it.labels.map(labelChip),
         labelButton('issue', () => it, net, (labels) => ((it = { ...it, labels }), renderFrame())),
       ),

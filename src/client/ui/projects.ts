@@ -87,6 +87,10 @@ export function openProjectSettings(net: Net, floorId: string): void {
   const base = h('input', { type: 'text', 'aria-label': 'Base branch', spellcheck: 'false', disabled: !admin }) as HTMLInputElement;
   const space = h('select', { 'aria-label': 'ClickUp space', disabled: !admin }) as HTMLSelectElement;
   const spaceNote = h('small.note');
+  const list = h('select', { 'aria-label': 'ClickUp list for new tasks', disabled: !admin }) as HTMLSelectElement;
+  const listNote = h('small.note');
+  const listRow = h('label', {}, 'New tasks (N on the 📌 Issues board) go in', list, listNote);
+  let savedSpace = '';
   const status = h('p.note');
   const save = h('button.btn.primary', { type: 'button', disabled: !admin, title: admin ? '' : 'Only admins can change project settings' }, 'Save');
   const el = h(
@@ -101,6 +105,7 @@ export function openProjectSettings(net: Net, floorId: string): void {
       h('label', {}, 'Push remote', remote),
       h('label', {}, 'Base branch', base),
       h('label', {}, 'ClickUp space (its open tasks are the 📌 Issues board)', space, spaceNote),
+      listRow,
       status,
     ),
     h('footer', {}, h('span.grow', {}, 'Esc to close'), save),
@@ -126,7 +131,21 @@ export function openProjectSettings(net: Net, floorId: string): void {
     space.replaceChildren(h('option', { value: '' }, none), ...[...current, ...spaces].map((s) => h('option', { value: s.id }, s.name)));
     space.value = c.clickupSpace ?? '';
     spaceNote.textContent = c.clickup?.error ?? '';
+    savedSpace = c.clickupSpace ?? '';
+    const lists = c.clickup?.lists ?? [];
+    const pinned = c.clickupList && !lists.some((l) => l.id === c.clickupList) ? [{ id: c.clickupList, name: `list ${c.clickupList}` }] : [];
+    list.replaceChildren(h('option', { value: '' }, `The space's first list${lists[0] ? ` (${lists[0].name})` : ''}`), ...[...pinned, ...lists].map((l) => h('option', { value: l.id }, l.name)));
+    list.value = c.clickupList ?? '';
+    listNote.textContent = c.clickup?.listsError ?? '';
+    showList();
   };
+  /** The lists are the saved space's: picking another space hides them until it's saved. */
+  const showList = () => {
+    listRow.classList.toggle('hidden', !space.value);
+    list.disabled = !admin || space.value !== savedSpace;
+    if (space.value && space.value !== savedSpace) listNote.textContent = "Save to pick from this space's lists";
+  };
+  space.addEventListener('change', showList);
   const off = listen((msg) => {
     if (msg.t !== 'project.config' || msg.floor !== floorId) return;
     status.classList.toggle('error', !!msg.error);
@@ -135,7 +154,7 @@ export function openProjectSettings(net: Net, floorId: string): void {
   });
   save.addEventListener('click', () => {
     status.textContent = 'Saving…';
-    net.send({ t: 'project.configure', floor: floorId, overrides: { pushRemote: remote.value.trim() || undefined, baseBranch: base.value.trim() || undefined, clickupSpace: space.value || undefined } });
+    net.send({ t: 'project.configure', floor: floorId, overrides: { pushRemote: remote.value.trim() || undefined, baseBranch: base.value.trim() || undefined, clickupSpace: space.value || undefined, clickupList: (space.value === savedSpace && list.value) || undefined } });
   });
   openModal(el, { doing: '⚙️ in project settings', onClose: () => off() });
   net.send({ t: 'project.config', floor: floorId });

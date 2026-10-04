@@ -245,7 +245,7 @@ test('a new store starts every field where it always has', async () => {
       you: '', peers: [], workers: [], screens: [], project: null, floors: [], floor: null, projectsDir: { dir: '', custom: false },
       repos: { list: [], loading: false, at: 0 }, issues: { items: [], fetchedAt: 0, loading: true }, pulls: { items: [], fetchedAt: 0, loading: true },
       host: { kind: 'none', words: { crNoun: 'pull request', crShort: 'PR', refPrefix: '#', cli: 'gh' }, caps: { labels: false, reviews: false, autoMerge: false, draft: false, lineComments: false, mergeMethods: [] } },
-      tracker: { kind: 'none', caps: { comment: false, close: false, assign: false, labels: false } },
+      tracker: { kind: 'none', caps: { comment: false, close: false, assign: false, labels: false, status: false, create: false } },
       ice: [], chat: [], invites: false, queue: { tasks: [], maxWorkers: 0 }, me: { admin: false },
       upgrade: { available: false, phase: 'idle' },
       usage: { total: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0, cost: 0, calls: 0 }, today: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0, cost: 0, calls: 0 }, day: '', pauseHiring: false },
