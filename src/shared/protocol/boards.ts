@@ -55,7 +55,8 @@ export type BoardsClientMsg =
   | { t: 'labels.set'; target: LabelTarget; id: string; add: string[]; remove: string[] };
 
 export type BoardsServerMsg =
-  | { t: 'issues.list'; state: BoardState<Issue> }
+  /** With the tracker, which ⚙️ Project settings can change (a ClickUp space picked or cleared). */
+  | { t: 'issues.list'; state: BoardState<Issue>; tracker?: TrackerView }
   | { t: 'cr.list'; state: BoardState<ChangeRequest> }
   /** Sent to whoever asked for the merge. */
   | { t: 'cr.merged'; number: number; error?: string }

@@ -8,6 +8,8 @@ import { ProjectRoots, tildify } from '../../projects/roots.js';
 import { effective, setOverrides } from '../../projects/store.js';
 import { str } from '../../office/input.js';
 import type { HandlerMap } from './types.js';
+import type { Client } from '../../office/client.js';
+import { clickUpSpaces, trackerChanged } from '../../trackers/index.js';
 
 const rootsOf = new WeakMap<Ctx, ProjectRoots>();
 /** The office's roots and GitLab hosts (one per office). */
@@ -18,6 +20,12 @@ export function projectRoots(ctx: Ctx): ProjectRoots {
 }
 
 const isGit = (dir: string) => existsSync(path.join(dir, '.git'));
+
+/** A floor's settings, with the ClickUp spaces there are to pick from. */
+async function sendConfig(ctx: Ctx, c: Client, floorId: string, dir: string) {
+  const config = effective(dir, projectRoots(ctx).gitlabHosts);
+  ctx.sendTo(c, { t: 'project.config', floor: floorId, config: { ...config, clickup: await clickUpSpaces() } });
+}
 
 export const projectHandlers = {
   'project.browse'(ctx, c, msg) {
@@ -62,17 +70,24 @@ export const projectHandlers = {
   'project.config'(ctx, c, msg) {
     const floor = ctx.floors.get(str(msg.floor, 64));
     if (!floor) return ctx.sendTo(c, { t: 'project.config', floor: msg.floor, error: 'No such floor' });
-    ctx.sendTo(c, { t: 'project.config', floor: floor.id, config: effective(floor.def.dir, projectRoots(ctx).gitlabHosts) });
+    void sendConfig(ctx, c, floor.id, floor.def.dir);
   },
   'project.configure'(ctx, c, msg) {
     const floor = ctx.floors.get(str(msg.floor, 64));
     if (!floor) return ctx.warn(c, 'No such floor');
     if (!ctx.meOf(c.accountId).admin) return ctx.warn(c, 'Only admins can change project settings');
     const o = msg.overrides ?? {};
-    const err = setOverrides(floor.def.dir, { pushRemote: o.pushRemote ? str(o.pushRemote, 200) : undefined, baseBranch: o.baseBranch ? str(o.baseBranch, 200) : undefined }, projectRoots(ctx).gitlabHosts);
+    const err = setOverrides(
+      floor.def.dir,
+      { pushRemote: o.pushRemote ? str(o.pushRemote, 200) : undefined, baseBranch: o.baseBranch ? str(o.baseBranch, 200) : undefined, clickupSpace: o.clickupSpace ? str(o.clickupSpace, 32) : undefined },
+      projectRoots(ctx).gitlabHosts,
+    );
     if (err) return ctx.sendTo(c, { t: 'project.config', floor: floor.id, error: err });
     ctx.toastAll(`⚙️ ${c.peer.name} changed ${floor.def.name}'s project settings`);
-    ctx.sendTo(c, { t: 'project.config', floor: floor.id, config: effective(floor.def.dir, projectRoots(ctx).gitlabHosts) });
+    // The issues board follows the ClickUp space as soon as it's looked at again (FloorTracker).
+    trackerChanged();
+    void floor.boards.refresh();
+    void sendConfig(ctx, c, floor.id, floor.def.dir);
   },
   'project.roots'(ctx, c, msg) {
     const roots = projectRoots(ctx);

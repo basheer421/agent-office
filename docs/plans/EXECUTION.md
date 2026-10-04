@@ -39,7 +39,7 @@ Tick here (in the PR that does it) so the next session knows where to start. Eac
 - [x] **P1c** protocol + client rename (`gh.*` → `cr.*` / `issues.*`, `ui/github/` → `ui/boards/`), issue ids → string (#5)
 - [x] **P2** local projects (open folder, project config, push remote / base branch) (#6)
 - [x] **P3** GitLab adapter (#14): `GitLabHost` wired via `hostFor`, glab prompts, 🦊 Clone from GitLab (elevator) + ⚙️ Clone from default host, contract test, `scripts/e2e-gitlab.sh` passed on platform/crf (MR !1, into a throwaway base)
-- [ ] **P4** ClickUp tracker (only after Bachir confirms P3 works) (#15)
+- [x] **P4** ClickUp tracker (only after Bachir confirms P3 works) (#15)
 - [x] **P5** GitLab per-person sign-in (only if asked) (#16)
 
 ## 4. Phase steps
