@@ -1,7 +1,6 @@
 // The shapes the workers' modules and the provider adapters (server/providers/) share.
 import type serialize from '@xterm/addon-serialize';
 import type { Run, WorkerInfo, WorkerStatus } from '../../shared/protocol.js';
-import type { DshSession } from '../dsh.js';
 import type { PromptSource } from '../prompts.js';
 import type { Pty } from '../ptys.js';
 import type { UsageTracker } from '../usage.js';
@@ -51,16 +50,27 @@ export interface RunAs {
   apply(owner: string, env: Record<string, string>, dirs: string[]): Record<string, string>;
 }
 
+/** A connection to an agent without a terminal of its own (see Worker.dsh). */
+export interface AgentSession {
+  start(): void;
+  /** Keystrokes from a browser, which the session echoes and gathers into a line. */
+  writeInput(data: string): void;
+  prompt(text: string): void;
+  cancelTurn(): void;
+  close(): void;
+}
+
 export interface Worker {
   info: WorkerInfo;
   /** The account that hired it, whose sign-ins it runs on. None: the office's own. */
   owner?: string;
   pty?: Pty;
   /**
-   * A DeepSeek Harness worker's ACP connection. It has no PTY: ACP updates are rendered into the
-   * same headless terminal the other providers mirror a process into (see dsh.ts).
+   * A worker the office talks to rather than runs in a terminal: DeepSeek Harness over ACP, Pi over
+   * its RPC mode. It has no PTY: what it says is rendered into the same headless terminal the other
+   * providers mirror a process into (see dsh.ts, pirpc.ts).
    */
-  dsh?: DshSession;
+  dsh?: AgentSession;
   term?: HeadlessTerminal;
   ser?: InstanceType<typeof serialize.SerializeAddon>;
   /** The screen so far, for a browser opening the terminal (see screen.ts). */
