@@ -18,6 +18,7 @@ import { planHandlers, planView } from './plan.js';
 import { presenceHandlers } from './presence.js';
 import { projectHandlers } from './projects.js';
 import { gitlabCloneHandlers } from './gitlab-clone.js';
+import { gitlabSigninsHandlers } from './gitlab-signins.js';
 import { queueHandlers, queueView } from './queue.js';
 import { rooftopHandlers } from './rooftop.js';
 import { screenHandlers, screenHooks } from './screens.js';
@@ -48,6 +49,7 @@ export const handlers: HandlerMap<ClientMsg> = {
   ...presenceHandlers,
   ...projectHandlers,
   ...gitlabCloneHandlers,
+  ...gitlabSigninsHandlers,
   ...queueHandlers,
   ...rooftopHandlers,
   ...screenHandlers,

@@ -69,7 +69,7 @@ export interface RTCIceServerLike {
   credential?: string;
 }
 
-const HELP = `agent-office — a 3D office for your team and its ${AGENT_PROVIDERS.filter((p) => p !== 'custom').map((p) => PROVIDER_META[p].name).join(' / ')} workers
+const HELP = `agent-office — a 3D office for your team and its ${[...new Set(AGENT_PROVIDERS.filter((p) => p !== 'custom').map((p) => PROVIDER_META[p].name))].join(' / ')} workers
 
 Usage:
   agent-office [options]

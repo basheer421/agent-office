@@ -247,6 +247,10 @@ export class PiRpcSession implements AgentSession {
     }
   }
 
+  cancelTurn() {
+    this.abort();
+  }
+
   abort() {
     void this.command({ type: 'abort' });
   }

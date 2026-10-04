@@ -1,9 +1,11 @@
-import { execFile, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import * as pty from '@lydell/node-pty';
 import type { SignInKind, SignInState, SignInsState } from '../shared/protocol.js';
+import { GitLabSignIns, gitlabHostOf } from './gitlab-signins.js';
+import { lastWords, plain, quote, run } from './signin-run.js';
 
 /*
  * Everyone's own Claude and GitHub
@@ -32,7 +34,6 @@ const GITHUB_VARS = ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_
 const FLOW_MS = 15 * 60_000;
 /** Someone's sign-ins are looked at again at most this often, unless they ask. */
 const LOOK_GAP_MS = 20_000;
-const LOOK_TIMEOUT_MS = 30_000;
 /** From `claude setup-token` (sk-ant-oat01-…), or an Anthropic API key (sk-ant-api03-…). */
 const CLAUDE_TOKEN = /^sk-ant-[a-z]+\d*-[A-Za-z0-9_-]{20,}$/;
 const API_KEY = /^sk-ant-api/;
@@ -73,12 +74,15 @@ export interface GhAs {
 export class SignIns {
   private homes: string;
   private live = new Map<string, Live>();
+  /** Their own GitLab, one sign-in per GitLab host (see gitlab-signins.ts). */
+  readonly gitlab: GitLabSignIns;
 
   constructor(
     dataDir: string,
     /** The `claude` and `gh` binaries, or null when they aren't installed. */
     private claude: string | null,
     private gh: string | null,
+    glab: string | null,
     /** The office's own environment, which everyone's is built on. */
     private base: () => Record<string, string>,
     /** Whether the account may use the office's own sign-ins (admins). */
@@ -86,6 +90,7 @@ export class SignIns {
     private onChange: (accountId: string) => void,
   ) {
     this.homes = path.join(dataDir, 'homes');
+    this.gitlab = new GitLabSignIns((id) => this.prepare(id), glab, base, mayUseOffice, onChange);
   }
 
   state(id: string): SignInsState {
@@ -94,6 +99,7 @@ export class SignIns {
     return {
       claude: { ...l.claude, how: this.how(id, s, 'claude') },
       github: { ...l.github, how: this.how(id, s, 'github') },
+      gitlab: this.gitlab.state(id),
       office: this.mayUseOffice(id),
     };
   }
@@ -151,6 +157,7 @@ export class SignIns {
       env.GH_CONFIG_DIR = path.join(home, 'gh');
       env.GIT_CONFIG_GLOBAL = path.join(home, 'gitconfig');
     }
+    if (only !== 'claude') this.gitlab.apply(id, env);
     return env;
   }
 
@@ -162,12 +169,33 @@ export class SignIns {
     return { key: id, env: this.apply(id, this.base(), [], 'github') };
   }
 
+  /**
+   * ghAs for work in the project at `dir`: on a GitLab floor, how the office runs glab for `id`
+   * (their own sign-in to that host, or the office's), else gh.
+   */
+  hostAs(id: string, dir?: string): GhAs | undefined | string {
+    const host = dir && gitlabHostOf(dir);
+    if (!host) return this.ghAs(id);
+    if (!this.gitlab.ready(id, host)) return this.whyGitlab(host);
+    return this.gitlab.usesOffice(id) ? undefined : { key: `${id}:gitlab`, env: this.apply(id, this.base(), [], 'github') };
+  }
+
+  /** Whether `id` can act on the code host of `dir` (GitLab or GitHub), as far as the last look knows. */
+  hostReady(id: string, dir?: string): boolean {
+    const host = dir && gitlabHostOf(dir);
+    return host ? this.gitlab.ready(id, host) : this.githubReady(id);
+  }
+
+  whyGitlab(host: string): string {
+    return `Sign in to GitLab (${host}) first (${HELP_WHERE}): the office acts on GitLab as you`;
+  }
+
   /** Looks at who `id` is signed in as, now if `force`, else unless it just did. */
   look(id: string, force = false): Promise<void> {
     const l = this.get(id);
     if (l.looking) return l.looking;
     if (!force && Date.now() - l.lookedAt < LOOK_GAP_MS) return Promise.resolve();
-    l.looking = Promise.all([this.lookClaude(id), this.lookGithub(id)]).then(() => {
+    l.looking = Promise.all([this.lookClaude(id), this.lookGithub(id), this.gitlab.look(id, force)]).then(() => {
       l.lookedAt = Date.now();
       l.looking = undefined;
       this.onChange(id);
@@ -257,6 +285,7 @@ export class SignIns {
     this.stop(id, 'claude');
     this.stop(id, 'github');
     this.live.delete(id);
+    this.gitlab.forget(id);
     const home = path.join(this.homes, id);
     if (!existsSync(home)) return;
     // On a Mac, Claude keeps the login in the keychain, not the folder: sign out so it goes too.
@@ -610,6 +639,7 @@ export class SignIns {
         lines.push(`[credential ${quote(host)}]`, '\thelper =', `\thelper = ${quote(`!'${this.gh.replace(/'/g, `'\\''`)}' auth git-credential`)}`);
       }
     }
+    lines.push(...this.gitlab.credentialLines(id));
     if (user) lines.push('[user]', `\tname = ${quote(user.name)}`, `\temail = ${quote(user.email)}`);
     const text = `${lines.join('\n')}\n`;
     const file = path.join(home, 'gitconfig');
@@ -620,41 +650,4 @@ export class SignIns {
       console.error(`agent-office: couldn't write ${file}: ${(err as Error).message}`);
     }
   }
-}
-
-/** A value for a git config file, quoted. */
-function quote(v: string): string {
-  return `"${v.replace(/[\p{C}]/gu, '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-}
-
-/** Terminal output as plain text: no colors, links or cursor moves. */
-function plain(s: string): string {
-  return s
-    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
-    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '')
-    .replace(/\x1b[@-_]/g, '')
-    .replace(/\r\n?/g, '\n');
-}
-
-/** The last thing a command said, minus the link and the prompt, for an error line. */
-function lastWords(s: string): string {
-  const lines = plain(s)
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l && !/https?:\/\/|paste code|opening browser|press enter/i.test(l));
-  return (lines.at(-1) ?? '').slice(0, 300);
-}
-
-/** Runs a command to the end; never rejects. `last` is the last line it said on stderr (or stdout). */
-function run(cmd: string, args: string[], env: Record<string, string>, input?: string): Promise<{ code: number; out: string; last: string }> {
-  return new Promise((resolve) => {
-    const p = execFile(cmd, args, { env, timeout: LOOK_TIMEOUT_MS, maxBuffer: 1024 * 1024, encoding: 'utf8' }, (err, stdout, stderr) => {
-      const e = err as { code?: number | string } | null;
-      const code = !e ? 0 : typeof e.code === 'number' ? e.code : -1;
-      const last = lastWords(stderr || (err && !stdout ? err.message : ''));
-      resolve({ code, out: stdout.trim(), last });
-    });
-    if (input !== undefined) p.stdin?.end(input);
-    else p.stdin?.end();
-  });
 }

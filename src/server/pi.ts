@@ -9,7 +9,7 @@ import type { OpenCodeStatusEvent } from './opencode.js';
 const PI_SESSION_ID = /^[A-Za-z0-9._-]{1,160}$/;
 
 /** Keep sessions per desk; do not resume another worker's most recent conversation. */
-export function piArgs(extra: string[], options: { extension: string; sessionDir: string; sessionId?: string; model?: string; effort?: AgentEffort; prompt?: string; rpc?: boolean }): string[] {
+export function piArgs(extra: string[], options: { extension?: string; mode?: 'rpc'; sessionDir: string; sessionId?: string; model?: string; effort?: AgentEffort; prompt?: string; rpc?: boolean }): string[] {
   const values = new Set(['--mode', '--session', '--session-dir', '--session-id', '--fork', '--export']);
   const flags = new Set(['--print', '-p', '--continue', '-c', '--resume', '-r', '--no-session']);
   if (options.model) values.add('--model');
@@ -25,8 +25,13 @@ export function piArgs(extra: string[], options: { extension: string; sessionDir
     if ([...values].some((name) => arg.startsWith(`${name}=`))) continue;
     args.push(arg);
   }
+  args.push('--session-dir', options.sessionDir);
   // In chat mode the office reads its status off the RPC events themselves: the hook extension would only say it twice.
-  args.push('--session-dir', options.sessionDir, ...(options.rpc ? ['--mode', 'rpc'] : ['--extension', options.extension]));
+  if (options.rpc) args.push('--mode', 'rpc');
+  else {
+    if (options.extension) args.push('--extension', options.extension);
+    if (options.mode) args.push('--mode', options.mode);
+  }
   // Pi doesn't write a session file until the first assistant reply. --session-id
   // resumes persisted history and also reopens an unused desk with the same id.
   if (options.sessionId) args.push('--session-id', options.sessionId);

@@ -57,6 +57,7 @@ export function createServices(ctx: Ctx): BuildingServices {
     cfg.dataDir,
     claudeBin,
     resolveCommand('gh'),
+    resolveCommand('glab'),
     childEnv,
     (id) => accounts.get(id)?.role === 'admin',
     (id) => {

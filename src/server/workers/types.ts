@@ -53,10 +53,12 @@ export interface RunAs {
 
 /** A worker's connection when it has no PTY: what the manager does with it. */
 export interface AgentSession {
+  start(): void;
   /** Keystrokes typed into its terminal. */
   writeInput(data: string): void;
   /** A message for it, submitted. */
   prompt(text: string): void;
+  cancelTurn(): void;
   /** Ends it quietly: the office is stopping it, not it failing. */
   close(): void;
 }
@@ -68,8 +70,8 @@ export interface Worker {
   pty?: Pty;
   /**
    * The connection of a worker that runs without a PTY: a DeepSeek Harness worker's ACP session (see
-   * dsh.ts), or a chat-mode Pi worker's RPC one (see rpc.ts). Both also draw what it does into the
-   * same headless terminal the other providers mirror a process into.
+   * dsh.ts), a Pi (chat) worker's RPC one (see pirpc.ts), or a chat-mode Pi worker's (see rpc.ts). All
+   * draw what it does into the same headless terminal the other providers mirror a process into.
    */
   dsh?: AgentSession;
   /** A chat-mode worker's chat and what's under it, kept across its runs (see rpc.ts). */

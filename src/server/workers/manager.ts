@@ -693,13 +693,13 @@ export class WorkerManager {
     }
     adapter?.usage?.locate?.(this.handleOf(w), cwd, env);
 
-    if (adapter?.transport === 'acp' || info.chat) {
-      // No PTY and no argv for prompts or resume: the office owns an ACP (see dsh.ts) or RPC (rpc.ts)
-      // connection instead, and renders its updates into this same terminal.
+    if (adapter?.transport === 'acp' || adapter?.transport === 'rpc' || info.chat) {
+      // No PTY and no argv for prompts or resume: the office owns an ACP (see dsh.ts) or RPC (pirpc.ts, or
+      // rpc.ts for chat mode) connection instead, and renders its updates into this same terminal.
       const file = commandPath ?? shell;
       const acpArgs = commandPath ? args : shellRun(['exec', command, ...args].map((a, i) => (i < 2 ? a : shq(a))).join(' '));
       if (info.chat) launchRpc(this.ctx, w, this.handleOf(w), term, { file, args: acpArgs, cwd, env, prompt, resumed: !!resumeSessionId });
-      else launchAcp(this.ctx, w, term, { file, args: acpArgs, cwd, env, resumeSessionId, prompt });
+      else launchAcp(this.ctx, w, term, { file, args: acpArgs, cwd, env, resumeSessionId, prompt }, adapter!.transport as 'acp' | 'rpc');
       this.emitUpdate(w);
       this.persist();
       return;
