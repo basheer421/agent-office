@@ -23,6 +23,7 @@ import { openQueue } from './ui/queue';
 import { openAsk } from './ui/ask';
 import { openMeeting, type MeetingPreset } from './ui/meeting';
 import { openSignIns } from './ui/signins';
+import { wireServices } from './lite/services';
 import { modelBadge, providerLabel } from './ui/provider';
 import { byUrgency, waitingInOrder, waitingLabel } from './nextup';
 import { askNotifyPermission, DesktopNotifier, notifyPermission, waitingOnSomeone } from './notify';
@@ -329,6 +330,7 @@ $('btn-issues').addEventListener('click', () => openBoard('issues', net, boardAc
 $('btn-pulls').addEventListener('click', () => openBoard('pulls', net, boardActions()));
 $('btn-queue').addEventListener('click', () => openQueue(net, { openTerminal: openWorker }));
 $('btn-new').addEventListener('click', () => sendToWorker('✨ New task'));
+wireServices();
 
 function renderNav() {
   const count = (id: string, n: number) => ($(id).querySelector('.n')!.textContent = n ? String(n) : '');
